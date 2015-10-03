@@ -44,7 +44,29 @@ class CVImage(object):
         # @param path : abs path to the image
         # @return img : new image
 
+        # Firts, we have to detail the image that we will load.
+        # This is done by appending the  the self.counter attribute to the
+        # path provided. This will work only if the images are named like:"xxxxxx.png"
+        # where xxxxxx is the number of the image.
+        if self.counter < 9:
+            number_image = str(00000) + str(self.counter)
+        else if self.counter < 100:
+            number_image = str(0000) + str(self.counter)
+        else if self.counter < 1000:
+            number_image = str(000) + str(self.counter)
+        else if self.counter < 10000:
+            number_image = str(00) + str(self.counter)
+        else if self.counter < 100000:
+            number_image = str(0) + str(self.counter)
+        else:
+            number_image = str(self.counter)
 
+        file_name = path + '/' + number_image +  '.png'
+
+        # Now, read the image
+        img = cv2.imread(file_name)
+
+        return img
 
     def count_images(self, path):
         # Count the number of images in the specified path
@@ -56,3 +78,20 @@ class CVImage(object):
 
     def on_mouse_click(self, event, x, y, flags, param):
         # This function allows the user to selct a ROI using the mouse
+
+
+    def cleanup(self):
+        print "Shutting down VisualOdometry"
+        cv2.destroyAllWindows()
+
+
+    def main(args):
+        try:
+            CVImage(/home/cesar/Documentos/Computer_Vision/01/image_0)
+        except KeyboardInterrupt:
+            print "Shutting down VisualOdometry"
+            cv.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main(sys.argv)
