@@ -26,6 +26,8 @@ class CVImage(object):
         self.resize_window_height = 0
         self.path = str(path)
         self.counter = 0
+        self.new_image = None
+        self.prev_image = None
 
         # Check the number of images in the path
         self.number_images = self.count_images(self.path)
@@ -65,10 +67,24 @@ class CVImage(object):
         file_name = self.path + '/' + number_image + '.png'
         
         # Now, read the image
-        img = cv2.imread(file_name)
+        self.new_image = cv2.imread(file_name)
 
-        return img
 
+    def show_image(self):
+        # Show the new image
+        cv2.imshow(self.cv_window_name, self.new_image)
+        self.keystroke = cv2.waitKey(0)
+        # If we pressed the q key, shut down
+        if self.keystroke != 1:
+            try:
+                cc = chr(self.keystroke & 255).lower()
+                if cc == 'q':
+                    self.cleanup()
+            except:
+                pass
+
+
+        
     def count_images(self, path):
         # Count the number of images in the specified path
         # @param path: string containing the path of the images
@@ -87,7 +103,11 @@ class CVImage(object):
 
 def main(args):
     try:
-        CVImage('/home/cesar/Documentos/Computer_Vision/01/image_0')
+        
+        img = CVImage('/home/cesar/Documentos/Computer_Vision/01/image_0')
+        img.read_image()
+        img.show_image()
+
     except KeyboardInterrupt:
         print "Shutting down VisualOdometry"
         cv.destroyAllWindows()
