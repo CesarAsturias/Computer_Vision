@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import cv2.cv as cv
 import time
+import Matcher
 
 # @file CVImage.py
 # @author Cesar
@@ -32,11 +33,17 @@ class CVImage(object):
         # Check the number of images in the path
         self.number_images = self.count_images(self.path)
 
-        # Create the main display window
+        # Create the main display windows
         self.cv_window_name = 'CV_WINDOW'
         cv.NamedWindow(self.cv_window_name, cv.CV_WINDOW_NORMAL)
         if self.resize_window_height > 0 and self.resize_window_width > 0:
             cv.ResizeWindow(self.cv_window_name, self.resize_window_width, self.resize_window_height)
+
+        self.cv_prev_window_name = 'CV_PREV_WINDOW'
+        cv.NamedWindow(self.cv_prev_window_name, cv.CV_WINDOW_NORMAL)
+        if self.resize_window_height > 0 and self.resize_window_width > 0:
+            cv.ResizeWindow(self.cv_prev_window_name, self.resize_window_width, self.resize_window_height)
+
 
         # Set a call back on mouse clicks on the image window
         cv.SetMouseCallback(self.cv_window_name, self.on_mouse_click, None)
@@ -62,17 +69,19 @@ class CVImage(object):
             number_image = '0' + str(self.counter)
         else:
             number_image = str(self.counter)
-        
 
         file_name = self.path + '/' + number_image + '.png'
-        
+
         # Now, read the image
         self.new_image = cv2.imread(file_name)
 
-
-    def show_image(self):
+    def show_image(self, image=0):
         # Show the new image
-        cv2.imshow(self.cv_window_name, self.new_image)
+        # If image = 0, show the new image. Otherwise, show prev_image
+        if image == 0:
+            cv2.imshow(self.cv_window_name, self.new_image)
+        else:
+            cv2.imshow(self.cv_prev_window_name, self.prev_image)
         self.keystroke = cv2.waitKey(0)
         # If we pressed the q key, shut down
         if self.keystroke != 1:
@@ -80,11 +89,15 @@ class CVImage(object):
                 cc = chr(self.keystroke & 255).lower()
                 if cc == 'q':
                     self.cleanup()
+                elif cc == 'n':
+                    self.acquire()
             except:
                 pass
 
+    def copy_image(self):
+        # Copy the new image to the previous image
+        self.prev_image = self.new_image
 
-        
     def count_images(self, path):
         # Count the number of images in the specified path
         # @param path: string containing the path of the images
@@ -92,6 +105,11 @@ class CVImage(object):
 
         count = len([name for name in os.listdir(path) if os.path.isfile(os.path.join(path, name))])
         return count
+
+    def acquire(self):
+        # Acquire a new image and store it in new_image
+        self.counter = self.counter + 1
+        self.read_image()
 
     def on_mouse_click(self, event, x, y, flags, param):
         # This function allows the user to selct a ROI using the mouse
@@ -101,12 +119,22 @@ class CVImage(object):
         print "Shuting down CVImage"
         cv.DestroyAllWindows()
 
+
 def main(args):
     try:
-        
+
         img = CVImage('/home/cesar/Documentos/Computer_Vision/01/image_0')
         img.read_image()
+        img.copy_image()
+        img.acquire()
         img.show_image()
+        img.show_image(1)
+        matcher = Matcher.Matcher()
+        matcher.match(img.new_image, img.prev_image)
+        
+        matcher.draw_matches(img.new_image)
+        img.show_image()
+        
 
     except KeyboardInterrupt:
         print "Shutting down VisualOdometry"
