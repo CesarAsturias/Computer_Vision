@@ -3,6 +3,7 @@ import cv2
 import cv2.cv as cv
 import time
 from cv2 import KeyPoint
+from cv2 import FlannBasedMatcher 
 
 # @file Matcher.py
 # @author Cesar
@@ -19,7 +20,7 @@ class Matcher(object):
         self.Flann_index_lsh = 6
         self.index_params = dict(algorithm=self.Flann_index_lsh, table_number=6, key_size=12, multi_probe_level=1)
         self.search_params = dict(checks=50)
-        self.flann_matcher = cv2.FlannBasedMatcher(self.index_params, self.search_params)
+        self.flann_matcher = FlannBasedMatcher(self.index_params, self.search_params)
         self.kp1 = KeyPoint()
         self.kp2 = KeyPoint()
         self.desc1 = None
@@ -38,27 +39,40 @@ class Matcher(object):
         self.matches = self.bf.match(self.desc1, self.desc2)
         self.matches = sorted(self.matches, key=lambda x: x.distance)
 
-    def filter_distance(matches):
+    def filter_distance(self, matches):
         # Clear matches for wich NearestNeighbor (NN) ratio is > than threshold
-        dist = [m.distance for m in matches]
+        dist = []
+        sel_matches = []
+        for i in range(0, len(matches)):
+            for j in range(0,1):
+                dist.append(matches[i][j].distance)
+        
         thres_dist = (sum(dist)/len(dist)) * self.ratio
 
         # Keep only reasonable matches
-        sel_matches = [m for m in matches if m.distance < thres_dist]
+        for i in range(0, len(matches)):
+            if len(matches[i]) == 2:
+                if (matches[i][0].distance / matches[i][1].distance) < thres_dist:
+                
+                    sel_matches.append(matches[i])
+        
         return sel_matches
 
-    def filter_asymmetric(matches1, matches2):
+    def filter_asymmetric(self, matches1, matches2):
         # Keep only symmetric matches
         sel_matches = []
         # For every match in the forward direction, we remove those that aren't found in the other direction
         for match1 in matches1:
             for match2 in matches2:
-                if self.kp2[match1.queryIdx] == self.kp2[match2.trainIdx] and self.kp1[match1.trainIdx] == self.kp1[match2.queryIdx]:
+                if self.kp2[match1[0].queryIdx] == self.kp2[match2[0].trainIdx] and self.kp1[match1[0].trainIdx] == self.kp1[match2[0].queryIdx]:
                     sel_matches.append(match1)
                     break
         return sel_matches
 
-    def filter_matches(matches1, matches2):
+    def filter_matches(self, matches1, matches2):
+
+        print type(matches1)
+
         matches1 = self.filter_distance(matches1)
         matches2 = self.filter_distance(matches2)
 
@@ -74,18 +88,23 @@ class Matcher(object):
 
         matches1 = self.flann_matcher.knnMatch(self.desc1, self.desc2, k=2)
         matches2 = self.flann_matcher.knnMatch(self.desc2, self.desc1, k=2)
+        print (range(len(matches1[0])))
+        print matches1[0][0].distance
+        print matches1[0][1].distance
+        print type(len(matches1))
         self.good_matches = self.filter_matches(matches1, matches2)
+        print len(self.good_matches)
 
-    def draw_matches(self, img):
+    def draw_matches(self, img, matches):
         # Draw matches in the last image
         # @param img: image
         # @param matches: a matcher object (opencv)
         # @param kp1: keypoints of the old frame
         # @param kp2: keypoints of the new frame
         # @return img: image with lines between correlated points
-        for i in range(len(self.matches)):
-            idtrain = self.matches[i].trainIdx
-            idquery = self.matches[i].queryIdx
+        for i in range(len(matches)):
+            idtrain = matches[i][0].trainIdx
+            idquery = matches[i][0].queryIdx
             print idtrain
             print idquery
             point_train = self.kp2[idtrain].pt
