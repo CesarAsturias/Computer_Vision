@@ -33,24 +33,9 @@ class CVImage(object):
         # Check the number of images in the path
         self.number_images = self.count_images(self.path)
 
-        # Create the main display windows
-        self.cv_window_name = 'CV_WINDOW'
-        cv.NamedWindow(self.cv_window_name, cv.CV_WINDOW_NORMAL)
-        if self.resize_window_height > 0 and self.resize_window_width > 0:
-            cv.ResizeWindow(self.cv_window_name, self.resize_window_width, self.resize_window_height)
-
-        self.cv_prev_window_name = 'CV_PREV_WINDOW'
-        cv.NamedWindow(self.cv_prev_window_name, cv.CV_WINDOW_NORMAL)
-        if self.resize_window_height > 0 and self.resize_window_width > 0:
-            cv.ResizeWindow(self.cv_prev_window_name, self.resize_window_width, self.resize_window_height)
-
-
-        # Set a call back on mouse clicks on the image window
-        cv.SetMouseCallback(self.cv_window_name, self.on_mouse_click, None)
 
     def read_image(self):
-        # This function reads the new image from the path specifie
-        # @param path : abs path to the image
+        # This function reads the new image from the path specified
         # @return img : new image
 
         # Firts, we have to detail the image that we will load.
@@ -130,10 +115,12 @@ def main(args):
         img.show_image()
         img.show_image(1)
         matcher = Matcher.Matcher()
-        matcher.match(img.new_image, img.prev_image)
+        matcher.match_flann(img.new_image, img.prev_image)
         
-        matcher.draw_matches(img.new_image)
-        img.show_image()
+        #matcher.draw_matches(img.new_image)
+        #img.show_image()
+        print type(matcher.good_matches)
+        print matcher.good_matches[1]
         
 
     except KeyboardInterrupt:

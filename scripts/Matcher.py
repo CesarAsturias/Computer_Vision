@@ -31,6 +31,8 @@ class Matcher(object):
         self.matches2 = None
         self.good_matches = None
         self.good_matches = None
+        self.good_kp1 = [] 
+        self.good_kp2 = []
 
     def match(self, img_new, img_prev):
         # Compute the matches for the two images
@@ -55,6 +57,7 @@ class Matcher(object):
                 if (matches[i][0].distance / matches[i][1].distance) < thres_dist:
                 
                     sel_matches.append(matches[i])
+
         
         return sel_matches
 
@@ -65,13 +68,14 @@ class Matcher(object):
         for match1 in matches1:
             for match2 in matches2:
                 if self.kp2[match1[0].queryIdx] == self.kp2[match2[0].trainIdx] and self.kp1[match1[0].trainIdx] == self.kp1[match2[0].queryIdx]:
+                    # We keep only symmetric matches and store the keypoints of this matches
                     sel_matches.append(match1)
+                    self.good_kp2.append(self.kp2[match1[0].queryIdx].pt)
+                    self.good_kp1.append(self.kp1[match1[0].trainIdx].pt)
                     break
         return sel_matches
 
     def filter_matches(self, matches1, matches2):
-
-        print type(matches1)
 
         matches1 = self.filter_distance(matches1)
         matches2 = self.filter_distance(matches2)
@@ -88,12 +92,9 @@ class Matcher(object):
 
         matches1 = self.flann_matcher.knnMatch(self.desc1, self.desc2, k=2)
         matches2 = self.flann_matcher.knnMatch(self.desc2, self.desc1, k=2)
-        print (range(len(matches1[0])))
-        print matches1[0][0].distance
-        print matches1[0][1].distance
-        print type(len(matches1))
         self.good_matches = self.filter_matches(matches1, matches2)
-        print len(self.good_matches)
+        print self.good_kp1[0]
+        print self.good_kp2[0]
 
     def draw_matches(self, img, matches):
         # Draw matches in the last image
@@ -105,16 +106,14 @@ class Matcher(object):
         for i in range(len(matches)):
             idtrain = matches[i][0].trainIdx
             idquery = matches[i][0].queryIdx
-            print idtrain
-            print idquery
+            
             point_train = self.kp2[idtrain].pt
             point_query = self.kp1[idquery].pt
-            print point_train
-            print point_query
+            
             point_train = self.transform_float_int_tuple(point_train)
             point_query = self.transform_float_int_tuple(point_query)
-            print point_train
-            print point_query
+            
+            
             cv2.line(img, ((point_train[0]), (point_train[1])),((point_query[0]), (point_query[1])), (255, 0, 0))
             
         return img
