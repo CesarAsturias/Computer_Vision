@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import cv2.cv as cv
 import time
 
 # @file VisualOdometry.py
@@ -25,6 +24,6 @@ class VisualOdometry(object):
 
         self.F, self.mask = cv2.findFundamentalMat(kpts1, kpts2, cv2.FM_RANSAC)
 
-        
+
 
 

@@ -1,7 +1,6 @@
 import sys, os
 import numpy as np
 import cv2
-import cv2.cv as cv
 import time
 import Matcher
 
@@ -33,14 +32,14 @@ class CVImage(object):
         # Check the number of images in the path
         self.number_images = self.count_images(self.path)
 
-
     def read_image(self):
         # This function reads the new image from the path specified
         # @return img : new image
 
         # Firts, we have to detail the image that we will load.
         # This is done by appending the  the self.counter attribute to the
-        # path provided. This will work only if the images are named like:"xxxxxx.png"
+        # path provided. This will work only if the images are
+        # named like:"xxxxxx.png"
         # where xxxxxx is the number of the image.
         if self.counter < 9 or self.counter == 0:
             number_image = '00000' + str(self.counter)
@@ -96,13 +95,24 @@ class CVImage(object):
         self.counter = self.counter + 1
         self.read_image()
 
+    def crop_image(self, start, size, img):
+        # Extract ROI in the image
+        # @param start: pixel coordinates of the start position of the ROI (np
+        # array, x and y)
+        # @param size : height and width (in pixels) of the ROI (np array)
+        # @param img: input image
+        # @return roi: ROI
+        roi = img[start[1, 0]:start[1, 0] + size[1, 0],
+                  start[0, 0]: start[0, 0] + size[0, 0]]
+        return roi
+
     def on_mouse_click(self, event, x, y, flags, param):
         # This function allows the user to selct a ROI using the mouse
         return 0
 
     def cleanup(self):
         print "Shuting down CVImage"
-        cv.DestroyAllWindows()
+        cv2.DestroyAllWindows()
 
 
 def main(args):
@@ -116,16 +126,15 @@ def main(args):
         img.show_image(1)
         matcher = Matcher.Matcher()
         matcher.match_flann(img.new_image, img.prev_image)
-        
-        #matcher.draw_matches(img.new_image)
-        #img.show_image()
+
+        # matcher.draw_matches(img.new_image)
+        # img.show_image()
         print type(matcher.good_matches)
         print matcher.good_matches[1]
-        
 
     except KeyboardInterrupt:
         print "Shutting down VisualOdometry"
-        cv.destroyAllWindows()
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
