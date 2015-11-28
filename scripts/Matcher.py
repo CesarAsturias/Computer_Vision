@@ -4,6 +4,7 @@ import time
 from cv2 import KeyPoint
 from cv2 import FlannBasedMatcher
 import sys
+import pdb
 
 # @file Matcher.py
 # @author Cesar
@@ -16,7 +17,9 @@ class Matcher(object):
     def __init__(self):
         # Initiate ORB detectors
         self.orb = cv2.ORB_create()
-        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        # If we want to filter ourselves the maches from bfmatches, crosscheck =
+        # false
+        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self.Flann_index_lsh = 6
         self.index_params = dict(algorithm=self.Flann_index_lsh, table_number=6, key_size=12, multi_probe_level=1)
         self.search_params = dict(checks=50)
@@ -42,70 +45,56 @@ class Matcher(object):
         # Compute the matches for the two images
         self.kp1, self.desc1 = self.orb.detectAndCompute(img_prev, None)
         self.kp2, self.desc2 = self.orb.detectAndCompute(img_new, None)
-        self.matches = self.bf.match(self.desc1, self.desc2)
-        self.matches = sorted(self.matches, key=lambda x: x.distance)
+        self.matches1 = self.bf.knnMatch(self.desc1, self.desc2, 2)
+        self.matches2 = self.bf.knnMatch(self.desc2, self.desc1, 2)
+        self.good_matches = self.filter_matches(self.matches1, self.matches2)
+        #self.matches = sorted(self.matches, key=lambda x: x.distance)
+
 
     def filter_distance(self, matches):
+        # Start tracing with pdb
+        #pdb.set_trace()
         # Clear matches for wich NearestNeighbor (NN) ratio is > than threshold
         dist = []
         sel_matches = []
         thres_dist = 0
+        temp_matches =[]
 
-        for i in range(0, len(matches)):
-            if len(matches[i]) == 2:
+        for i in range(0, len(matches) - 1):
+            # We keep only those match objects with two matches:
+            if (len(matches[i])) == 2:
+                # If there are two matches:
                 for j in range(0, 2):
-                    dist.append(matches[i][j].distance)
-                    thres_dist = (sum(dist)/len(dist)) * self.ratio
-        if thres_dist :
-            print "threshold", thres_dist
-            # Keep only reasonable matches
-            for i in range(0, len(matches)):
-                if len(matches[i]) == 2:
-                    if (matches[i][0].distance / matches[i][1].distance) < thres_dist:
 
-                        sel_matches.append(matches[i])
+                    dist.append(matches[i][j].distance)
+                    temp_matches.append(matches[i])
+
+        # Now, calculate the threshold:
+        thres_dist = (sum(dist) / len(dist)) * self.ratio
+
+        # Keep only reasonable matches based on the threshold distance:
+        for i  in range(0, len(temp_matches)):
+            if (temp_matches[i][0].distance / temp_matches[i][1].distance) < thres_dist:
+
+                sel_matches.append(temp_matches[i])
 
         return sel_matches
 
     def filter_asymmetric(self, matches1, matches2):
         # Keep only symmetric matches
         sel_matches = []
+        #pdb.set_trace()
         #i = 0
         # For every match in the forward direction, we remove those that aren't found in the other direction
         for match1 in matches1:
             for match2 in matches2:
-                #print len(match1)
-                #print len(match2)
-                #i = i + 1
-                #print i
-                #print "len matches1", len(matches1)
-                #print "len matches2", len(matches2)
-
-                #print match1[0].queryIdx
-                #print self.kp2[match1[0].queryIdx]
-                #rint type(self.kp2[match1[0].queryIdx])
-                #print type(self.kp2[match1[0])
-                #print len(self.kp1)
-                #print len(self.kp2)
-                #print self.kp2[208]
-                #print match2[0].trainIdx
-                #print self.kp2[match2[0].trainIdx]
-                #print self.kp1[match1[0].trainIdx]
-                #print match1[0].queryIdx
-                #print self.kp2[match1[0].queryIdx]
-                #print self.kp1[match2[0].queryIdx]
-                #if not  self.kp2[match1[0]] == None and not  self.kp2[match2[0]] == None
-                 #               and not  self.kp1[match1[0]] == None and not  self.kp1[match2[0]] == None:
-                if (match1[0].queryIdx) < (len(self.kp2) - 1) and (match2[0].trainIdx) <= (len(self.kp2) - 1):
-                    #print "ok"
-                    if self.kp2[match1[0].queryIdx] == self.kp2[match2[0].trainIdx] and self.kp1[match1[0].trainIdx] == self.kp1[match2[0].queryIdx]:
+                # If matches are symmetrical:
+                    if (match1[0].queryIdx) == (match2[0].trainIdx)  and \
+                        (match2[0].queryIdx) == (match1[0].trainIdx):
                         # We keep only symmetric matches and store the keypoints of this matches
                         sel_matches.append(match1)
-                        self.good_kp2.append(self.kp2[match1[0].queryIdx].pt)
-                        self.good_kp1.append(self.kp1[match1[0].trainIdx].pt)
-                        break
-                    else:
-                        print "no ok"
+                        self.good_kp2.append(self.kp2[match1[0].trainIdx].pt)
+                        self.good_kp1.append(self.kp1[match1[0].queryIdx].pt)
                         break
         return sel_matches
 
@@ -115,7 +104,8 @@ class Matcher(object):
         matches2 = self.filter_distance(matches2)
         print "matches1 distancia", len(matches1)
         print "matches2 distancia", len(matches2)
-        return matches1
+        good_matches = self.filter_asymmetric(matches1, matches2)
+        return good_matches
 
         #return self.filter_asymmetric(matches1, matches2)
 
