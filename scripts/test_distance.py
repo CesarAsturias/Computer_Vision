@@ -18,7 +18,13 @@ roi = img.crop_image(start, size, img.new_image)
 roi_prev = img.crop_image(start, size, img.prev_image)
 match.match_flann(roi, roi_prev)
 print "good_matches flann", len(match.good_matches)
+roiflann = roi
 
+match.draw_matches(roiflann, match.good_matches)
+cv2.namedWindow('roi', cv2.WINDOW_NORMAL)
+cv2.imshow('roi', roiflann)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 # Draw matches
 
 

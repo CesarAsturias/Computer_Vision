@@ -33,12 +33,11 @@ class Matcher(object):
         self.matches1 = None
         self.matches2 = None
         self.good_matches = None
-        self.good_matches = None
         self.good_kp1 = []
         self.good_kp2 = []
         #self.orb.setScaleFactor(1)
         self.n_matches = 0
-        self.orb.setMaxFeatures(25)
+        #self.orb.setMaxFeatures(25)
 
 
     def match(self, img_new, img_prev):
