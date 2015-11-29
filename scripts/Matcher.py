@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import time
 from cv2 import KeyPoint
 from cv2 import FlannBasedMatcher
 import sys
@@ -21,9 +20,11 @@ class Matcher(object):
         # false
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self.Flann_index_lsh = 6
-        self.index_params = dict(algorithm=self.Flann_index_lsh, table_number=6, key_size=12, multi_probe_level=1)
+        self.index_params = dict(algorithm=self.Flann_index_lsh, table_number=6,
+                                 key_size=12, multi_probe_level=1)
         self.search_params = dict(checks=50)
-        self.flann_matcher = FlannBasedMatcher(self.index_params, self.search_params)
+        self.flann_matcher = FlannBasedMatcher(self.index_params,
+                                               self.search_params)
         self.kp1 = KeyPoint()
         self.kp2 = KeyPoint()
         self.desc1 = None
@@ -35,29 +36,30 @@ class Matcher(object):
         self.good_matches = None
         self.good_kp1 = []
         self.good_kp2 = []
-        #self.orb.setScaleFactor(1)
+        # self.orb.setScaleFactor(1)
         self.n_matches = 0
-        #self.orb.setMaxFeatures(25)
-
+        # self.orb.setMaxFeatures(25)
 
     def match(self, img_new, img_prev):
-        # Compute the matches for the two images
+        # Compute the matches for the two images using the Brute Force matcher
+        # @param img_new: The current image
+        # @param img_prev: The reference image
         self.kp1, self.desc1 = self.orb.detectAndCompute(img_prev, None)
         self.kp2, self.desc2 = self.orb.detectAndCompute(img_new, None)
         self.matches1 = self.bf.knnMatch(self.desc1, self.desc2, 2)
         self.matches2 = self.bf.knnMatch(self.desc2, self.desc1, 2)
         self.good_matches = self.filter_matches(self.matches1, self.matches2)
-        #self.matches = sorted(self.matches, key=lambda x: x.distance)
-
+        # self.matches = sorted(self.matches, key=lambda x: x.distance)
 
     def filter_distance(self, matches):
-        # Start tracing with pdb
-        #pdb.set_trace()
+        # Filter the matches based on a distance threshold
+        # @param matches: List of matches (matcher objects)
+        # pdb.set_trace()
         # Clear matches for wich NearestNeighbor (NN) ratio is > than threshold
         dist = []
         sel_matches = []
         thres_dist = 0
-        temp_matches =[]
+        temp_matches = []
 
         for i in range(0, len(matches) - 1):
             # We keep only those match objects with two matches:
@@ -72,7 +74,7 @@ class Matcher(object):
         thres_dist = (sum(dist) / len(dist)) * self.ratio
 
         # Keep only reasonable matches based on the threshold distance:
-        for i  in range(0, len(temp_matches)):
+        for i in range(0, len(temp_matches)):
             if (temp_matches[i][0].distance / temp_matches[i][1].distance) < thres_dist:
 
                 sel_matches.append(temp_matches[i])
@@ -80,17 +82,21 @@ class Matcher(object):
         return sel_matches
 
     def filter_asymmetric(self, matches1, matches2):
+        # Filter the matches with the symetrical test.
+        # @param matches1: First list of matches
+        # @param matches2: Second list of matches
+        # @return sel_matches: filtered matches
         # Keep only symmetric matches
         sel_matches = []
-        #pdb.set_trace()
-        #i = 0
-        # For every match in the forward direction, we remove those that aren't found in the other direction
+        # For every match in the forward direction, we remove those that aren't
+        # found in the other direction
         for match1 in matches1:
             for match2 in matches2:
                 # If matches are symmetrical:
-                    if (match1[0].queryIdx) == (match2[0].trainIdx)  and \
-                        (match2[0].queryIdx) == (match1[0].trainIdx):
-                        # We keep only symmetric matches and store the keypoints of this matches
+                    if (match1[0].queryIdx) == (match2[0].trainIdx) and \
+                         (match2[0].queryIdx) == (match1[0].trainIdx):
+                        # We keep only symmetric matches and store the keypoints
+                        # of this matches
                         sel_matches.append(match1)
                         self.good_kp2.append(self.kp2[match1[0].trainIdx].pt)
                         self.good_kp1.append(self.kp1[match1[0].queryIdx].pt)
@@ -98,25 +104,28 @@ class Matcher(object):
         return sel_matches
 
     def filter_matches(self, matches1, matches2):
+        # This function filter two list of matches based on the distance
+        # threshold and the symmetric test
+        # @param matches1: First list of matches
+        # @param matches2: Second list of matches
+        # @return good_matches: List of filtered matches
 
         matches1 = self.filter_distance(matches1)
         matches2 = self.filter_distance(matches2)
-        print "matches1 distancia", len(matches1)
-        print "matches2 distancia", len(matches2)
         good_matches = self.filter_asymmetric(matches1, matches2)
         return good_matches
 
-        #return self.filter_asymmetric(matches1, matches2)
-
     def match_flann(self, img_new, img_prev):
-        # Compute matches for the two images
+        # Compute matches for the two images based on Flann.
+        # @param img_new: Current frame
+        # @param img_prev: Reference frame
         # First, keypoints and descriptors for both images
         self.kp1, self.desc1 = self.orb.detectAndCompute(img_new, None)
         self.kp2, self.desc2 = self.orb.detectAndCompute(img_prev, None)
         # Next, match:
         print "kp1",  len(self.kp1)
         print "kp2", len(self.kp2)
-        if  self.kp1 and self.kp2:
+        if self.kp1 and self.kp2:
             matches1 = self.flann_matcher.knnMatch(self.desc1, self.desc2, k=2)
             print "matches1", len(matches1)
 
@@ -126,11 +135,6 @@ class Matcher(object):
             self.good_matches = self.filter_matches(matches1, matches2)
         else:
             print "No matches found"
-
-        #print self.good_kp1[0]
-        #print self.good_kp2[0]
-
-
 
     def draw_matches(self, img, matches):
         # Draw matches in the last image
@@ -149,8 +153,7 @@ class Matcher(object):
             point_train = self.transform_float_int_tuple(point_train)
             point_query = self.transform_float_int_tuple(point_query)
 
-
-            cv2.line(img, ((point_train[0]), (point_train[1])),((point_query[0]), (point_query[1])), (255, 0, 0))
+            cv2.line(img, ((point_train[0]), (point_train[1])), ((point_query[0]), (point_query[1])), (255, 0, 0))
 
         return img
 

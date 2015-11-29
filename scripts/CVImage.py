@@ -12,7 +12,7 @@ import Matcher
 
 
 class CVImage(object):
-    def __init__(self, path):
+    def __init__(self, pathi):
         # Initialize a number of global variables
         self.frame = None
         self.frame_size = None
@@ -35,7 +35,6 @@ class CVImage(object):
     def read_image(self):
         # This function reads the new image from the path specified
         # @return img : new image
-
         # Firts, we have to detail the image that we will load.
         # This is done by appending the  the self.counter attribute to the
         # path provided. This will work only if the images are
@@ -61,6 +60,7 @@ class CVImage(object):
 
     def show_image(self, image=0):
         # Show the new image
+        # @param image: if 0, show the new image
         # If image = 0, show the new image. Otherwise, show prev_image
         if image == 0:
             cv2.imshow(self.cv_window_name, self.new_image)
