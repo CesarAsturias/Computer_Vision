@@ -2,6 +2,7 @@ from CVImage import CVImage
 from Matcher import Matcher
 import cv2
 import numpy as np
+from VisualOdometry import VisualOdometry
 
 match = Matcher()
 img = CVImage('/home/cesar/Documentos/Computer_Vision/01/image_0')
@@ -36,3 +37,8 @@ cv2.namedWindow('roi', cv2.WINDOW_NORMAL)
 cv2.imshow('roi', roi)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+# Compute F
+vo = VisualOdometry()
+vo.EstimateF_multiprocessing(match.good_kp1, match.good_kp2)
+print 'F', vo.F
