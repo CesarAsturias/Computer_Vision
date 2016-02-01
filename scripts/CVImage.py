@@ -12,7 +12,7 @@ import Matcher
 
 
 class CVImage(object):
-    def __init__(self, pathi):
+    def __init__(self, path):
         # Initialize a number of global variables
         self.frame = None
         self.frame_size = None

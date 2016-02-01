@@ -4,6 +4,8 @@ from cv2 import KeyPoint
 from cv2 import FlannBasedMatcher
 import sys
 import pdb
+import sharedmem
+
 
 # @file Matcher.py
 # @author Cesar
