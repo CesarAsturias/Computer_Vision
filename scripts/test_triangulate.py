@@ -43,17 +43,10 @@ cv2.destroyAllWindows()
 # Compute F
 vo = VisualOdometry()
 vo.EstimateF_multiprocessing(match.good_kp1, match.good_kp2)
-print 'F', vo.F
-
-
 
 #sk = np.array([[0, -vo.e[2], vo.e[1]], [vo.e[2], 0, -vo.e[0]],
 #               [-vo.e[1], vo.e[0], 0]])
 vo.P_from_F(vo.F)
-print "P2", vo.P2
-print vo.e
-print match.good_kp1[0]
-print match.good_kp2[0]
 
 vo.create_P1()
 
