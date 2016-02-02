@@ -26,7 +26,8 @@ class VisualOdometry(object):
         self.P2 = None  # Second camera matrix
         self.correctedkpts1 = None
         self.correctedkpts2 = None  # Feature locations corrected by the optimal
-        # triangulation algorithm
+        # triangulation algorithm. This are the estimated features in the Gold
+        # Standard algorithm for estimating F (H&Z page 285)
 
         self.structure = None  # List  of 3D points (triangulated)
 
@@ -200,7 +201,6 @@ class VisualOdometry(object):
 
             kpts[i] = np.array(kpts[i], np.float32).reshape(-1, 1, 3)
 
-
         pnh = [cv2.convertPointsFromHomogeneous(x) for x in kpts]
 
         return pnh
@@ -220,7 +220,6 @@ class VisualOdometry(object):
         for i in range(len(points3d)):
 
             listpoints3d.append(points3d[i])
-
 
         # points3d.tolist()
 
