@@ -32,6 +32,10 @@ roi_prev = img.crop_image(start, size, img.prev_image)
 match.match(roi, roi_prev)
 print "good_matches bf", len(match.good_matches)
 
+print "good_kp1", len(match.good_kp1)
+
+print "good_kp2", len(match.good_kp2)
+
 
 
 match.draw_matches(roi, match.good_matches)
@@ -42,13 +46,20 @@ cv2.destroyAllWindows()
 
 # Compute F
 vo = VisualOdometry()
-vo.EstimateF_multiprocessing(match.good_kp1, match.good_kp2)
+[match.good_kp1, match.good_kp2] = vo.EstimateF_multiprocessing(match.good_kp1, match.good_kp2)
 
+print "good_kp1", len(match.good_kp1)
+
+print "good_kp2", len(match.good_kp2)
 #sk = np.array([[0, -vo.e[2], vo.e[1]], [vo.e[2], 0, -vo.e[0]],
 #               [-vo.e[1], vo.e[0], 0]])
-vo.P_from_F(vo.F)
+#vo.P_from_F(vo.F)
 
-vo.create_P1()
+#vo.create_P1()
 
+print "prev F", vo.F
+#vo.optimal_triangulation(match.good_kp1, match.good_kp2)
+# error = vo.functiontominimize(match.good_kp1, match.good_kp2)
+vo.minimize_cost(match.good_kp1, match.good_kp2)
 
-vo.optimal_triangulation(match.good_kp1, match.good_kp2)
+print "optF", vo.F

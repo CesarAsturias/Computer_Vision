@@ -3,6 +3,7 @@ import cv2
 import threading
 from multiprocessing import Process, Queue
 from scipy import linalg
+from scipy import optimize
 
 
 # @file VisualOdometry.py
@@ -60,6 +61,7 @@ class VisualOdometry(object):
         # Estimate F using the multiprocessing module
         # @param kpts1: list of keypoints of the current frame
         # @param kpts2: list of keypoints of the reference frame
+        # @return kpts1, kpts2: Inliers
 
         kpts1 = np.float32(kpts1)
         kpts2 = np.float32(kpts2)
@@ -81,6 +83,11 @@ class VisualOdometry(object):
         self.F = res[0]
         self.mask = res[1]
 
+        # Select only inlier points
+
+        return [kpts1[self.mask.ravel() == 1],
+                kpts2[self.mask.ravel() == 1]]
+
     def EstimateF_multithreading(self, kpts1, kpts2):
         t = threading.Thread(target=self.FindFundamentalRansac,
                              args=(kpts2, kpts1, ))
@@ -100,10 +107,7 @@ class VisualOdometry(object):
 
         # Null space of F (Fx = 0)
 
-        print F
-
         U, S, V = linalg.svd(F)
-        print V
         self.e = V[-1]
         self.e = self.e / self.e[2]
 
@@ -167,7 +171,7 @@ class VisualOdometry(object):
 
         points3D = cv2.triangulatePoints(self.P1, self.P2, kpts1, kpts2)
 
-        X = points3D / points3D[3]  # Normalize points: [x, y, 1]
+        self.structure = points3D / points3D[3]  # Normalize points: [x, y, 1]
 
         # The individual points are selected like these:
 
@@ -215,8 +219,6 @@ class VisualOdometry(object):
 
         listpoints3d = []
 
-        print len(points3d[:])
-
         for i in range(len(points3d)):
 
             listpoints3d.append(points3d[i])
@@ -232,3 +234,53 @@ class VisualOdometry(object):
         # points2d = [np.float32(np.dot(P, x.T)) for x in points3d]
 
         return listpoints2d
+
+    def functiontominimize(self, F, kpts1, kpts2):
+        # This is the function that we will pass to the levenberg-marquardt
+        # algorithm. It calculate the camera matrices P and P', the last one
+        # using the fundamental matrix F. Then, it triangulate the 3D points
+        # X_hat and obtain the estimated x and x'. Finally, it returns the
+        # reprojection error (not squared).
+        # @param kpts1: inliers in the previous image.
+        # @param kpts2: inliers in the second image.
+        # @return e_rep: reprojection error
+        self.create_P1()
+        self.P_from_F(F)
+        self.optimal_triangulation(kpts1, kpts2)
+        # Reshape from (1, nkeypoints, 2) to (nkeypoints, 2)
+        a, b, c = np.shape(self.correctedkpts1)
+        self.correctedkpts1 = self.correctedkpts1.reshape(b, 2)
+        self.correctedkpts2 = self.correctedkpts2.reshape(b, 2)
+
+        A = np.subtract(kpts1, self.correctedkpts1)
+        B = np.subtract(kpts2, self.correctedkpts2)
+
+        A = (A**2)
+        B = (B**2)
+
+        errora = np.sum(A, axis=1)
+
+        errorb = np.sum(B, axis=1)
+
+        error = np.add(errora, errorb)
+
+        print type(np.sqrt(error))
+
+        print "shape", np.shape(np.sqrt(error))
+
+        print np.sum(error)
+
+        return np.sqrt(error)
+
+    def minimize_cost(self, kpts1, kpts2):
+        # Wrapper for the optimize.leastsq function.
+
+        F0 = self.F
+        F_opt, F_cov = optimize.leastsq(self.functiontominimize,
+                                        F0, args=(kpts1, kpts2))
+
+        self.F = F_opt
+
+    # def E_from_F(self, F):
+        #
+        # Get the essential matrix from the fundamental
