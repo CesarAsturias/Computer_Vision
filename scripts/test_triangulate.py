@@ -63,3 +63,11 @@ print "prev F", vo.F
 vo.minimize_cost(match.good_kp1, match.good_kp2)
 
 print "optF", vo.F
+vo.E_from_F()
+
+print "Essential", vo.E
+
+vo.FindEssentialRansac(match.good_kp2, match.good_kp2)
+
+print "Essential2", vo.E
+print "mask", vo.maskE

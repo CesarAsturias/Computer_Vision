@@ -28,6 +28,7 @@ class CVImage(object):
         self.counter = 0
         self.new_image = None
         self.prev_image = None
+        self.invariant_image = None
 
         # Check the number of images in the path
         self.number_images = self.count_images(self.path)
@@ -58,6 +59,8 @@ class CVImage(object):
         # Now, read the image
         self.new_image = cv2.imread(file_name)
 
+        self.invariant_image = cv2.imread(file_name)
+
     def show_image(self, image=0):
         # Show the new image
         # @param image: if 0, show the new image
@@ -81,6 +84,10 @@ class CVImage(object):
     def copy_image(self):
         # Copy the new image to the previous image
         self.prev_image = self.new_image
+
+    def create_img(self):
+
+        return self.invariant_image
 
     def count_images(self, path):
         # Count the number of images in the specified path

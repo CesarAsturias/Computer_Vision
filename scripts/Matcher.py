@@ -2,9 +2,7 @@ import numpy as np
 import cv2
 from cv2 import KeyPoint
 from cv2 import FlannBasedMatcher
-import sys
 import pdb
-import sharedmem
 
 
 # @file Matcher.py
@@ -41,6 +39,9 @@ class Matcher(object):
         # self.orb.setScaleFactor(1)
         self.n_matches = 0
         # self.orb.setMaxFeatures(25)
+        self.global_matches = []
+        self.global_kpts1 = []
+        self.global_kpts2 = []
 
     def match(self, img_new, img_prev):
         # Compute the matches for the two images using the Brute Force matcher
@@ -103,6 +104,12 @@ class Matcher(object):
                         self.good_kp2.append(self.kp2[match1[0].trainIdx].pt)
                         self.good_kp1.append(self.kp1[match1[0].queryIdx].pt)
                         break
+
+        # We have stored twice every keypoint. Remove them
+
+        self.good_kp1 = self.good_kp1[::2]
+        self.good_kp2 = self.good_kp2[::2]
+
         return sel_matches
 
     def filter_matches(self, matches1, matches2):
@@ -155,7 +162,36 @@ class Matcher(object):
             point_train = self.transform_float_int_tuple(point_train)
             point_query = self.transform_float_int_tuple(point_query)
 
-            cv2.line(img, ((point_train[0]), (point_train[1])), ((point_query[0]), (point_query[1])), (255, 0, 0))
+            cv2.line(img, ((point_train[0]), (point_train[1])),
+                     ((point_query[0]), (point_query[1])), (255, 0, 0))
+
+        return img
+
+    def draw_matches_np(self, img, kpts_c, kpts_p):
+        # Draw the matches in the image img, taking as input a numpy array
+        # @param img: image
+        # @param kpts_c: keypoints in the current image (numpy ndarray)
+        # @param kpts_p: keypoints in the previous image (numpy ndarray)
+        # @return img: image with lines between correlated points
+
+        for i in range(len(kpts_c)):
+
+            cv2.line(img, ((kpts_c[i][0]), (kpts_c[i][1])),
+                     ((kpts_p[i][0]), (kpts_p[i][1])), (255, 0, 0))
+
+        return img
+
+    def draw_outliers_np(self, img, kpts_c, kpts_p):
+        # Draw the matches in the image img, taking as input a numpy array
+        # @param img: image
+        # @param kpts_c: keypoints in the current image (numpy ndarray)
+        # @param kpts_p: keypoints in the previous image (numpy ndarray)
+        # @return img: image with lines between correlated points
+
+        for i in range(len(kpts_c)):
+
+            cv2.line(img, ((kpts_c[i][0]), (kpts_c[i][1])),
+                     ((kpts_p[i][0]), (kpts_p[i][1])), (0, 0, 255))
 
         return img
 
@@ -168,3 +204,55 @@ class Matcher(object):
             return input_tuple
 
         return output_tuple
+
+    def append_matches(self):
+        # Store all matches in one list
+
+        for i in range(len(self.good_matches)):
+
+            self.global_matches.append(self.good_matches[i])
+
+    def append_keypoints1(self):
+        # Store keypoints from the current image in one list
+
+        for i in range(len(self.good_kp1)):
+
+            self.global_kpts1.append(self.good_kp1[i])
+
+    def append_keypoints2(self):
+        # Store keypoints from the current image in one list
+
+        for i in range(len(self.good_kp2)):
+
+            self.global_kpts2.append(self.good_kp2[i])
+
+    def append_global(self):
+
+        self.append_keypoints1()
+        self.append_keypoints2()
+        self.append_matches()
+
+    def sum_coord(self, x_ini, y_ini):
+        # In order to get the true coordinates of the keypoits distributed along
+        # over the entire image, not the coordinates refered to the roi's, we
+        # have to sum the start vector to every keypoint
+
+        for i in range(len(self.good_kp1)):
+
+            self.good_kp1[i] = list(self.good_kp1[i])
+
+            self.good_kp2[i] = list(self.good_kp2[i])
+
+            self.good_kp1[i][0] += x_ini
+
+            self.good_kp1[i][1] += y_ini
+
+            self.good_kp2[i][0] += x_ini
+
+            self.good_kp2[i][1] += y_ini
+
+            self.good_kp1[i] = np.array([self.good_kp1[i][0],
+                                         self.good_kp1[i][1]])
+
+            self.good_kp2[i] = np.array([self.good_kp2[i][0],
+                                         self.good_kp2[i][1]])
