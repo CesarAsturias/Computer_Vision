@@ -71,7 +71,8 @@ class VisualOdometry(object):
         # pp = (self.K[0][2], self.K[1][2])
 
         self.E, self.maskE = cv2.findEssentialMat(kpts2, kpts1, focal, pp,
-                                                  cv2.RANSAC, 0.999, 1.0, self.maskE)
+                                                  cv2.RANSAC, 0.999, 1.0,
+                                                  self.maskE)
 
     def FindFundamentalRansacPro(self, queue):
         # Compute Fundamental matrix from a set of corresponding keypoints,
@@ -123,7 +124,6 @@ class VisualOdometry(object):
         self.outlier_points_new = np.float32(self.outlier_points_new[0])
 
         self.outlier_points_prev = np.float32(self.outlier_points_prev[0])
-
 
         return [kpts1[self.mask.ravel() == 1],
                 kpts2[self.mask.ravel() == 1]]
@@ -190,8 +190,8 @@ class VisualOdometry(object):
         # First, we have to reshape the keypoints. They must be a 1 x n x 2
         # array.
 
-        kpts1 = np.float32(kpts1)
-        kpts2 = np.float32(kpts2)
+        kpts1 = np.float32(kpts1)  # Points in the first camera
+        kpts2 = np.float32(kpts2)  # Points in the second camera
 
         # 3D Matrix : [kpts1[0] kpts[1]... kpts[n]]
 
@@ -199,7 +199,7 @@ class VisualOdometry(object):
 
         pt2 = np.reshape(kpts2, (1, len(kpts2), 2))
 
-        new_points1, new_points2 = cv2.correctMatches(self.F, pt1, pt2)
+        new_points1, new_points2 = cv2.correctMatches(self.F, pt2, pt1)
 
         self.correctedkpts1 = new_points1
         self.correctedkpts2 = new_points2
@@ -209,7 +209,9 @@ class VisualOdometry(object):
         kpts1 = (np.reshape(new_points1, (len(kpts1), 2))).T
         kpts2 = (np.reshape(new_points2, (len(kpts2), 2))).T
 
-        points3D = cv2.triangulatePoints(self.cam1.P, self.cam2.P, kpts1, kpts2)
+        print np.shape(kpts1)
+
+        points3D = cv2.triangulatePoints(self.cam1.P, self.cam2.P, kpts2, kpts1)
 
         self.structure = points3D / points3D[3]  # Normalize points [x, y, z, 1]
 
@@ -224,6 +226,64 @@ class VisualOdometry(object):
         # The individual points are selected like these:
 
         # self.structure[:, i]. It's a 4 x n matrix
+
+    def opt_triangulation(self, x1, x2, P1, P2):
+        # For each given point corresondence points1[i] <-> points2[i], and a
+        # fundamental matrix F, computes the corrected correspondences
+        # new_points1[i] <-> new_points2[i] that minimize the geometric error
+        # d(points1[i], new_points1[i])^2 + d(points2[i], new_points2[i])^2,
+        # subject to the epipolar constraint new_points2^t * F * new_points1 = 0
+        # Here we are using the OpenCV's function CorrectMatches.
+
+        x1 = np.float32(x1)  # Points in the first camera
+        x2 = np.float32(x2)  # Points in the second camera
+
+        # 3D Matrix : [kpts1[0] kpts[1]... kpts[n]]
+
+        x1 = np.reshape(x1, (1, len(x1), 2))
+
+        x2 = np.reshape(x2, (1, len(x2), 2))
+
+        self.correctedkpts1, self.correctedkpts2 = cv2.correctMatches(self.F,
+                                                                      x1, x2)
+        # Reshape to n x 2 and make homogeneous
+        x1 = self.make_homog(np.transpose(self.correctedkpts1[0, :, :]))
+        x2 = self.make_homog(np.transpose(self.correctedkpts2[0, :, :]))
+
+        # Triangulate
+        # TODO: Check the form to pass the points to this function
+
+        points3d = self.triangulate_list(x1, x2, self.cam1.P, self.cam2.P)
+
+        return points3d
+
+    def triangulate_point(self, x1, x2, P1, P2):
+        # Point pair triangulation from least squares solution
+        M = np.zeros((6, 6))
+        M[:3, :4] = P1
+        M[3:, :4] = P2
+        M[:3, 4] = -x1
+        M[3:, 5] = -x2
+
+        U, S, V = linalg.svd(M)
+        X = V[-1, :4]
+
+        return X / X[3]
+
+    def triangulate_list(self, x1, x2, P1, P2):
+        # Two view triangulation of points in homogeneous coordinates
+
+        n = x1.shape[1]
+        if x2.shape[1] != n:
+            raise ValueError("Number of points don't match")
+
+        X = [self.triangulate_point(x1[:, i],
+                                    x2[:, i], P1, P2) for i in range(n)]
+        return np.array(X).T
+
+    def make_homog(self, points):
+        # Convert to homogeneous coordinates
+        return np.vstack((points, np.ones((1, points.shape[1]))))
 
     def triangulate(self, kpts1, kpts2):
 
@@ -354,8 +414,8 @@ class VisualOdometry(object):
 
         # Project the structure to both images and find residual:
         self.cam2.set_P(P2)
-        image1 = cam1.project(structure)
-        image2 = cam2.project(structure)
+        image1 = self.cam1.project(structure)
+        image2 = self.cam2.project(structure)
         image1 = np.transpose(self.convert_from_homogeneous(image1))
         image2 = np.transpose(self.convert_from_homogeneous(image2))
         error_image1 = self.residual(kpts1, image1)
@@ -363,8 +423,6 @@ class VisualOdometry(object):
         error = np.add(error_image1, error_image2)
 
         return error
-
-
 
         # print type(np.sqrt(error))
 
@@ -396,7 +454,7 @@ class VisualOdometry(object):
         # First, estimate P2 from F
 
         params_opt, params_cov = optimize.leastsq(self.functiontominimize,
-                                        F0, args=(kpts1, kpts2))
+                                                  F0, args=(kpts1, kpts2))
 
         self.F = np.reshape(F_opt, (3, 3))
 
@@ -414,12 +472,13 @@ class VisualOdometry(object):
         vec_str = self.structure.reshape(-1)
 
         # Pass them, and additional arguments to leastsq function.
-        # TODO: redefine error function
+        # TODO: redefine error function and create params vector
 
         F_opt, F_cov = optimize.leastsq(self.functiontominimize,
                                         F0, args=(kpts1, kpts2))
 
         self.F = np.reshape(F_opt, (3, 3))
+
     def functiontominimize2(self, F, kpts1, kpts2):
         # This is the function that we will pass to the levenberg-marquardt
         # algorithm. It calculate the camera matrices P and P', the last one
