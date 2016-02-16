@@ -37,43 +37,13 @@ cv2.destroyAllWindows()
 vo = VisualOdometry()
 [match.good_kp1, match.good_kp2] = vo.EstimateF_multiprocessing(match.good_kp1,
                                                                 match.good_kp2)
-print vo.F
+print "Estimated F",  vo.F
 # Obtener matrices de cmara
 vo.P_from_F(vo.F)
 vo.create_P1()
 print "P1", vo.cam1.P
 print "P2", vo.cam2.P
 # Triangulate points
-vo.optimal_triangulation(match.good_kp2, match.good_kp1)
-print "origianl points1", match.good_kp1[0:5, :]
-print "corrected points1", vo.correctedkpts1[:, 0:5]
-print "origianl points2", match.good_kp2[0:5, :]
-print "corrected points2", vo.correctedkpts2[:, 0:5]
-# print "structure", np.shape(vo.structure)
-print "structure", vo.structure[:, 1]
-image = vo.cam2.project(vo.structure)
-print "reprojected", image[:, 0:5]
-
-image2 = vo.cam1.project(vo.structure)
-print "reprojected", image2[:, 0:5]
-print type(match.good_kp1)
-# pointsho = vo.make_homog(np.transpose(match.good_kp1))
-# pointsho2 = vo.make_homog(np.transpose(match.good_kp2))
-print np.shape(vo.correctedkpts1[0, :, :])
-pointsho = vo.make_homog(np.transpose(vo.correctedkpts1[0, :, :]))
-pointsho2 = vo.make_homog(np.transpose(vo.correctedkpts2[0, :, :]))
-print "pointsho", pointsho[0:3, 1]
-
-print "pointsho", pointsho2[0:3, 1]
-points3d = vo.triangulate_point(pointsho[0:3, 1], pointsho2[0:3, 1],
-                                vo.cam1.P, vo.cam2.P)
-print "X", points3d
-point2d = vo.cam1.project(points3d)
-print "Project to camera 1:", point2d
-point2d = vo.cam2.project(points3d)
-print "Project to camera 2:", point2d
-
-print "shape of pointsho", np.shape(pointsho)
 
 scene = vo.opt_triangulation(match.good_kp1, match.good_kp2,
                              vo.cam1.P, vo.cam2.P)
@@ -81,6 +51,6 @@ point2d = vo.cam1.project(scene)
 point2d_prime = vo.cam2.project(scene)
 print scene[:, :3]
 print point2d[:, 0]
-print np.shape(vo.correctedkpts1[0])
+print len(vo.correctedkpts1[0])
 c_x1 = vo.correctedkpts1[0]
 print c_x1

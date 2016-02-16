@@ -4,7 +4,6 @@ import threading
 from multiprocessing import Process, Queue
 from scipy import linalg
 from scipy import optimize
-from scipy.spatial.distance import cdist
 
 # @file VisualOdometry.py
 # @author Cesar
@@ -235,8 +234,14 @@ class VisualOdometry(object):
         # subject to the epipolar constraint new_points2^t * F * new_points1 = 0
         # Here we are using the OpenCV's function CorrectMatches.
 
-        x1 = np.float32(x1)  # Points in the first camera
-        x2 = np.float32(x2)  # Points in the second camera
+        # @param x1: points in the second camera, list of vectors x, y
+        # @param x2: points in the first camera
+        # @param P1: Projection matrix of the first camera
+        # @param P2: Projection matrix of the second camera
+        # @return points3d: Structure of the scene, 3 x n matrix
+
+        x1 = np.float32(x1)  # Imhomogeneous
+        x2 = np.float32(x2)
 
         # 3D Matrix : [kpts1[0] kpts[1]... kpts[n]]
 
@@ -246,14 +251,20 @@ class VisualOdometry(object):
 
         self.correctedkpts1, self.correctedkpts2 = cv2.correctMatches(self.F,
                                                                       x1, x2)
-        # Reshape to n x 2 and make homogeneous
-        x1 = self.make_homog(np.transpose(self.correctedkpts1[0, :, :]))
-        x2 = self.make_homog(np.transpose(self.correctedkpts2[0, :, :]))
+        # Now, reshape to n x 2 shape
+        self.correctedkpts1 = self.correctedkpts1[0]
+        self.correctedkpts2 = self.correctedkpts2[0]
+        # and make homogeneous
+        x1 = self.make_homog(np.transpose(self.correctedkpts1))
+        x2 = self.make_homog(np.transpose(self.correctedkpts2))
 
         # Triangulate
-        # TODO: Check the form to pass the points to this function
+        # This function needs as arguments the coordinates of the keypoints
+        # (form 3 x n) and the projection matrices
 
         points3d = self.triangulate_list(x1, x2, self.cam1.P, self.cam2.P)
+
+        self.structure = points3d  # 3 x n matrix
 
         return points3d
 
@@ -271,7 +282,7 @@ class VisualOdometry(object):
         return X / X[3]
 
     def triangulate_list(self, x1, x2, P1, P2):
-        # Two view triangulation of points in homogeneous coordinates
+        # Two view triangulation of points in homogeneous coordinates (several)
 
         n = x1.shape[1]
         if x2.shape[1] != n:
@@ -360,51 +371,23 @@ class VisualOdometry(object):
 
         return a
 
-    def project_3dpoints(self, points3d, P):
-        # Project 3d points in the image plane via the projection matrix P
-        # @param points3d: list of 3d points (normalized homogeneous)
-        # @param P: Projection matrix (homogeneous)
-        # return 2dpoints: list of 2d points in homogeneous coordinates
-
-        points3d = points3d.T
-
-        listpoints3d = []
-
-        for i in range(len(points3d)):
-
-            listpoints3d.append(points3d[i])
-
-        # points3d.tolist()
-
-        listpoints2d = []
-
-        for i in range(len(listpoints3d)):
-
-            listpoints2d.append(np.float32(np.dot(P, listpoints3d[i].T)))
-
-        # points2d = [np.float32(np.dot(P, x.T)) for x in points3d]
-
-        return listpoints2d
-
-    def project(self, cam,  X):
-        # Project points in X (4*n) array and normalize
-        # @param cam: camera object
-        # @param X: 4*n array of 3d coordinates (homogeneous)
-
-        x = cam.project(X)
-
-        return x
-
-    def functiontominimize(self, params, kpts1, kpts2, structure):
+    def functiontominimize(self, params, x1, x2):
         # This is the function that we will pass to the levenberg-marquardt
         # algorithm. It extracts the camera matrix P' from the params vector
         # (params[0:8]). Then, it triangulate the 3D points
         # X_hat and obtain the estimated x and x'. Finally, it returns the
         # reprojection error (not squared).
-        # @param kpts1: inliers in the previous image.
-        # @param kpts2: inliers in the second image.
+
+        # @param x1: inliers in the previous image, i.e, the measured points in
+        # the previous image --> 3 x n array
+        # @param x2: inliers in the second image
+        # @param params: the parameter vector to minimize. It contains the two
+        # projection matrices and the structure of the scene
         # @return e_rep: reprojection error
-        self.create_P1()
+
+        if self.cam1 is None:
+            self.create_P1()
+
         P2 = None
         P2 = params[0:8].reshape(3, 3)
         # Reshape from (1, nkeypoints, 2) to (nkeypoints, 2)
@@ -413,52 +396,38 @@ class VisualOdometry(object):
         # self.correctedkpts2 = self.correctedkpts2.reshape(b, 2)
 
         # Project the structure to both images and find residual:
-        self.cam2.set_P(P2)
-        image1 = self.cam1.project(structure)
-        image2 = self.cam2.project(structure)
-        image1 = np.transpose(self.convert_from_homogeneous(image1))
-        image2 = np.transpose(self.convert_from_homogeneous(image2))
-        error_image1 = self.residual(kpts1, image1)
-        error_image2 = self.residual(kpts2, image2)
+        if self.cam2 is None:
+            self.cam2.set_P(P2)
+
+        x1_est = None
+        x2_est = None
+
+        x1_est = self.cam1.project(structure)  # The estimated projections
+        x2_est = self.cam2.project(structure)  # 3 x n
+
+        error_image1 = self.residual(x1, x1_est)
+        error_image2 = self.residual(x2, x2_est)
         error = np.add(error_image1, error_image2)
-
-        return error
-
-        # print type(np.sqrt(error))
-
-        # print "shape", np.shape(np.sqrt(error))
-
-        # print np.sum(error)
 
         return np.sqrt(error)
 
-    def residual(self, kpts1, kpts2):
-        # Reprojection error
-        # @param kpts1: numpy nx2 array
-        # @param kpts2: numpy nx2 array
-        # @return euclidean distance
+    def residual(self, x1, x2):
+        # Reprojection error. This function compute the squared distance between
+        # all the correlated points in the x1 and x2 arrays, which are expected
+        # to be numpy arrays.
 
-        # check shape
-        if np.shape(kpts1) != np.shape(kpts2):
-            kpts2 = np.transpose(kpts2)
-        # error = None
-        # error_avg = None
-        # error = np.subtract(kpts1, kpts2
-        # The function cdist returns an array with the distance between every
-        # points, and we are interested in the diagonal elements. See
-        # documentation.
-        return np.diag(cdist(kpts1, kpts2, "sqeuclidean"))
+        # @param x1: numpy nx2 array
+        # @param x2: numpy 3 x n  array
+        # @return squared euclidean distance
 
-    def minimize_cost(self, kpts1, kpts2):
-        # Wrapper for the optimize.leastsq function.
-        # First, estimate P2 from F
+        # Since we x2 is a 3 x n array we have to proceed with a for loop.
+        # TODO: Make code for converting automaticaly the shape of the arrays
+        # tho the desired one. Perhaps, this could be done in the calling
+        # function
 
-        params_opt, params_cov = optimize.leastsq(self.functiontominimize,
-                                                  F0, args=(kpts1, kpts2))
+        x1 = x1
 
-        self.F = np.reshape(F_opt, (3, 3))
-
-    def optimize_F(self, kpts1, kpts2):
+    def optimize_F(self, x1, x2):
         # Wrapper for the optimize.leastsq function.
 
         # Transform camera matrices into vectors:
@@ -471,61 +440,13 @@ class VisualOdometry(object):
         vec_str = None
         vec_str = self.structure.reshape(-1)
 
+        param = None
+
         # Pass them, and additional arguments to leastsq function.
         # TODO: redefine error function and create params vector
 
-        F_opt, F_cov = optimize.leastsq(self.functiontominimize,
-                                        F0, args=(kpts1, kpts2))
-
-        self.F = np.reshape(F_opt, (3, 3))
-
-    def functiontominimize2(self, F, kpts1, kpts2):
-        # This is the function that we will pass to the levenberg-marquardt
-        # algorithm. It calculate the camera matrices P and P', the last one
-        # using the fundamental matrix F. Then, it triangulate the 3D points
-        # X_hat and obtain the estimated x and x'. Finally, it returns the
-        # reprojection error (not squared).
-        # @param kpts1: inliers in the previous image.
-        # @param kpts2: inliers in the second image.
-        # @return e_rep: reprojection error
-        self.create_P1()
-
-        self.optimal_triangulation(kpts1, kpts2)
-        # Reshape from (1, nkeypoints, 2) to (nkeypoints, 2)
-        a, b, c = np.shape(self.correctedkpts1)
-        self.correctedkpts1 = self.correctedkpts1.reshape(b, 2)
-        self.correctedkpts2 = self.correctedkpts2.reshape(b, 2)
-
-        A = np.subtract(kpts1, self.correctedkpts1)
-        B = np.subtract(kpts2, self.correctedkpts2)
-
-        A = (A**2)
-        B = (B**2)
-
-        errora = np.sum(A, axis=1)
-
-        errorb = np.sum(B, axis=1)
-
-        error = np.add(errora, errorb)
-
-        # print type(np.sqrt(error))
-
-        # print "shape", np.shape(np.sqrt(error))
-
-        # print np.sum(error)
-
-        return np.sqrt(error)
-
-    def minimize_cost2(self, kpts1, kpts2):
-        # Wrapper for the optimize.leastsq function.
-
-        self.P_from_F(self.F)
-
-        P0 = self.cam2.P
-        P_opt, P_cov = optimize.leastsq(self.functiontominimize2,
-                                        P0, args=(kpts1, kpts2))
-
-        self.cam2.P = P_opt
+        param_opt, param_cov = optimize.leastsq(self.functiontominimize,
+                                                param, args=(x1, x2))
 
     def E_from_F(self):
         #
