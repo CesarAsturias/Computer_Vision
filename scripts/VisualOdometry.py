@@ -388,28 +388,30 @@ class VisualOdometry(object):
         if self.cam1 is None:
             self.create_P1()
 
+        # Obtain the second camera matrix from the params vector
         P2 = None
-        P2 = params[0:8].reshape(3, 3)
-        # Reshape from (1, nkeypoints, 2) to (nkeypoints, 2)
-        # a, b, c = np.shape(self.correctedkpts1)
-        # self.correctedkpts1 = self.correctedkpts1.reshape(b, 2)
-        # self.correctedkpts2 = self.correctedkpts2.reshape(b, 2)
+        P2 = params[0:12].reshape(3, 4)
+        p = params[12:len(params)]
+        l = np.shape(p)
+        # Obtain the structure matrix from param vector
+        X = np.reshape(p, (3, l[0] / 3))
+        # Make homogeneous
+        X = self.make_homog(X)
 
         # Project the structure to both images and find residual:
-        if self.cam2 is None:
-            self.cam2.set_P(P2)
+        self.cam2.set_P(P2)
 
         x1_est = None
         x2_est = None
 
-        x1_est = self.cam1.project(structure)  # The estimated projections
-        x2_est = self.cam2.project(structure)  # 3 x n
+        x1_est = self.cam1.project(X)  # The estimated projections
+        x2_est = self.cam2.project(X)  # 3 x n
 
-        error_image1 = self.residual(x1, x1_est)
-        error_image2 = self.residual(x2, x2_est)
-        error = np.add(error_image1, error_image2)
+        error_image1 = self.residual(x1, x1_est).ravel()
+        error_image2 = self.residual(x2, x2_est).ravel()
+        error = np.append(error_image1, error_image2)
 
-        return np.sqrt(error)
+        return error
 
     def residual(self, x1, x2):
         # Reprojection error. This function compute the squared distance between
@@ -425,28 +427,36 @@ class VisualOdometry(object):
         # tho the desired one. Perhaps, this could be done in the calling
         # function
 
-        x1 = x1
+        a, b = np.shape(x2)
+        error = np.zeros((b, 1))
+
+        x2_temp = np.delete(x2, 2, 0).transpose()  # Delete last row
+        error = np.subtract(x1, x2_temp)  # subtract [x - x_prime, y - y_prime]
+
+        return error  # numpy n  ndarray n x 2 (
 
     def optimize_F(self, x1, x2):
         # Wrapper for the optimize.leastsq function.
 
-        # Transform camera matrices into vectors:
-        vec_P1 = None
+        # Transform camera matrix into vector:
         vec_P2 = None
-        vec_P1 = np.hstack(self.cam1.P)
         vec_P2 = np.hstack(self.cam2.P)
 
         # Transform the structure (matrix 3 x n) to 1d vector
         vec_str = None
-        vec_str = self.structure.reshape(-1)
+        vec_str = np.delete(self.structure, 3, 0)  # The ones aren't params
+        vec_str = vec_str.reshape(-1)
 
-        param = None
+        param = vec_P2
+        param = np.append(param, vec_str)
 
         # Pass them, and additional arguments to leastsq function.
         # TODO: redefine error function and create params vector
 
         param_opt, param_cov = optimize.leastsq(self.functiontominimize,
                                                 param, args=(x1, x2))
+
+        return param_opt, param_cov
 
     def E_from_F(self):
         #
