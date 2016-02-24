@@ -36,19 +36,35 @@ class Matcher(object):
         self.good_matches = None
         self.good_kp1 = []
         self.good_kp2 = []
-        # self.orb.setScaleFactor(1)
         self.n_matches = 0
-        # self.orb.setMaxFeatures(25)
-        self.global_matches = []
+        # The following variables are used to work with numpy functions
+        self.global_matches = []  # Numpy array
         self.global_kpts1 = []
         self.global_kpts2 = []
+        # Create lists where we store the keypoints in their original format for
+        # future uses. Also, store the descriptors
+        self.curr_kp = []  # List of keypoints
+        self.prev_kp = []
+        self.curr_dsc = []  # List of descriptors
+        self.prev_dsc = []
 
     def match(self, img_new, img_prev):
         # Compute the matches for the two images using the Brute Force matcher
         # @param img_new: The current image
         # @param img_prev: The reference image
+        self.good_kp1 = []
+        self.good_kp2 = []
+        self.good_matches = None
         self.kp1, self.desc1 = self.orb.detectAndCompute(img_prev, None)
         self.kp2, self.desc2 = self.orb.detectAndCompute(img_new, None)
+
+        # Store the keypoints
+        # print "len original", len(self.kp1)
+        #for i in range(len(self.kp1)):
+        #     self.curr_kp.append(self.kp1[i])
+        #for i in range(len(self.kp2)):
+        #     self.prev_kp.append(self.kp2[i])
+
         self.matches1 = self.bf.knnMatch(self.desc1, self.desc2, 2)
         self.matches2 = self.bf.knnMatch(self.desc2, self.desc1, 2)
         self.good_matches = self.filter_matches(self.matches1, self.matches2)
@@ -103,12 +119,18 @@ class Matcher(object):
                         sel_matches.append(match1)
                         self.good_kp2.append(self.kp2[match1[0].trainIdx].pt)
                         self.good_kp1.append(self.kp1[match1[0].queryIdx].pt)
+                        # Store also the keypoints in original form
+                        self.curr_kp.append(self.kp1[match1[0].queryIdx])
+                        self.prev_kp.append(self.kp2[match1[0].trainIdx])
+                        self.curr_dsc.append(self.desc1[match1[0].queryIdx])
+                        self.prev_dsc.append(self.desc2[match1[0].trainIdx])
                         break
 
         # We have stored twice every keypoint. Remove them
 
         self.good_kp1 = self.good_kp1[::2]
         self.good_kp2 = self.good_kp2[::2]
+        sel_matches = sel_matches[::2]
 
         return sel_matches
 
@@ -252,7 +274,7 @@ class Matcher(object):
             self.good_kp2[i][1] += y_ini
 
             self.good_kp1[i] = np.array([self.good_kp1[i][0],
-                                         self.good_kp1[i][1]])
+                                         self.good_kp1[i][1]]).reshape(2)
 
             self.good_kp2[i] = np.array([self.good_kp2[i][0],
-                                         self.good_kp2[i][1]])
+                                         self.good_kp2[i][1]]).reshape(2)
