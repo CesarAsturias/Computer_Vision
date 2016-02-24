@@ -3,6 +3,7 @@ from Matcher import Matcher
 import numpy as np
 from VisualOdometry import VisualOdometry
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
 
 
 def correlate_roi(match, img, size, start):
@@ -119,6 +120,21 @@ def plot_save(match, img):
     # plt.savefig('test.png', dpi=100)
 
 
+def get_structure(match, img, vo):
+    # Get structure of the scene
+    # @param match: Matcher object
+    # @param img: CVImage object
+    # @param vo: VisualOdometry object
+    vo.P_from_F(vo.F)
+    vo.create_P1()
+
+    # Triangulate points
+    scene = vo.opt_triangulation(match.global_kpts1, match.global_kpts2,
+                                 vo.cam1.P, vo.cam2.P)
+
+    return scene
+
+
 def run():
     match = Matcher()
     img = CVImage('/home/cesar/Documentos/Computer_Vision/01/image_0')
@@ -167,11 +183,30 @@ def run():
     # Get Fundamental Matrix
     vo = VisualOdometry()
     print "Type of match.global_kpts1: ", type(match.global_kpts1)
-    match.global_kpts1, match.global_kpts2 = vo.EstimateF_multiprocessing(match.global_kpts1, match.global_kpts2)
+    match.global_kpts1, match.global_kpts2 = vo.EstimateF_multiprocessing(match.global_kpts2, match.global_kpts1)
     # plot_one(match, img)
     # plot_one_np(vo.outlier_points_new, img)
-    plot_together_np(match.global_kpts1, vo.outlier_points_new, img)
+    # plot_together_np(match.global_kpts1, vo.outlier_points_new, img)
     print("Total number of keypoints encountered: {}".format(get_number_keypoints(match)))
+
+    # Triangulate. To get the actual movement of the camera we are "swapping"
+    # the scene. The first camera is cam1.P, the first keypoints are
+    # global_kpts1. On the other hand, the second camera is cam2.P and the
+    # second keypoints are global_kpts2
+    scene = get_structure(match, img, vo)
+    print "ESCENA", scene[:, :20]
+    print "PROYECCION EN SEGUNDA", vo.cam1.project(scene[:, :20])
+    print "SEGUNDA", match.global_kpts1[:20]
+    print "CORREGIDOS SEGUNDA", vo.correctedkpts1[:, :20]
+    print "PROYECCION EN PRIMERA", vo.cam2.project(scene[:, :20])
+    print "PRIMERA", match.global_kpts2[:20]
+    print "CORREGIDOS EN PRIMERA", vo.correctedkpts2[:, :20]
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.plot(scene[0], scene[1], scene[2], 'ko')
+    plt.axis('equal')
+    plt.show()
+
 
 if __name__ == '__main__':
     run()

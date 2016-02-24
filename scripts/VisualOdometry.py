@@ -234,8 +234,8 @@ class VisualOdometry(object):
         # subject to the epipolar constraint new_points2^t * F * new_points1 = 0
         # Here we are using the OpenCV's function CorrectMatches.
 
-        # @param x1: points in the second camera, list of vectors x, y
-        # @param x2: points in the first camera
+        # @param x1: points in the first camera, list of vectors x, y
+        # @param x2: points in the second camera
         # @param P1: Projection matrix of the first camera
         # @param P2: Projection matrix of the second camera
         # @return points3d: Structure of the scene, 3 x n matrix
@@ -262,13 +262,13 @@ class VisualOdometry(object):
         # This function needs as arguments the coordinates of the keypoints
         # (form 3 x n) and the projection matrices
 
-        points3d = self.triangulate_list(x1, x2, self.cam1.P, self.cam2.P)
+        points3d = self.triangulate_list(x1, x2, P2, P1)
 
         self.structure = points3d  # 3 x n matrix
 
         return points3d
 
-    def triangulate_point(self, x1, x2, P1, P2):
+    def triangulate_point(self, x1, x2, P2, P1):
         # Point pair triangulation from least squares solution
         M = np.zeros((6, 6))
         M[:3, :4] = P1
