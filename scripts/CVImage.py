@@ -59,6 +59,10 @@ class CVImage(object):
         # Now, read the image
         self.new_image = cv2.imread(file_name)
 
+        self.frame_height = self.new_image.shape[0]
+
+        self.frame_width = self.new_image.shape[1]
+
         self.invariant_image = cv2.imread(file_name)
 
     def show_image(self, image=0):

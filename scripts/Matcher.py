@@ -47,16 +47,36 @@ class Matcher(object):
         self.prev_kp = []
         self.curr_dsc = []  # List of descriptors
         self.prev_dsc = []
+        self.is_minkp = None
+        self.is_minmatches = None
+
 
     def match(self, img_new, img_prev):
         # Compute the matches for the two images using the Brute Force matcher
         # @param img_new: The current image
         # @param img_prev: The reference image
+        # Initialize control variables
+        self.is_minkp = None
+        self.is_minmatches = None
         self.good_kp1 = []
         self.good_kp2 = []
         self.good_matches = None
         self.kp1, self.desc1 = self.orb.detectAndCompute(img_prev, None)
         self.kp2, self.desc2 = self.orb.detectAndCompute(img_new, None)
+
+        # Check descriptors
+
+        # There are any keypoints?
+        if not self.kp1 or not self.kp2:
+            self.is_minkp = False
+            print "The list of keypoints is emtpy"
+        else:
+            print "The list of keypoints is NOT empty"
+            if np.size(self.desc1)==0 or np.size(self.desc2)==0:
+                print "NO DESCRIPTORS"
+                self.is_minkp = False
+            else:
+                self.is_minkp = True
 
         # Store the keypoints
         # print "len original", len(self.kp1)
@@ -65,9 +85,19 @@ class Matcher(object):
         #for i in range(len(self.kp2)):
         #     self.prev_kp.append(self.kp2[i])
 
-        self.matches1 = self.bf.knnMatch(self.desc1, self.desc2, 2)
-        self.matches2 = self.bf.knnMatch(self.desc2, self.desc1, 2)
-        self.good_matches = self.filter_matches(self.matches1, self.matches2)
+        if self.is_minkp:
+            print " Matching..."
+            print self.is_minkp
+            self.matches1 = self.bf.knnMatch(self.desc1, self.desc2, 2)
+            self.matches2 = self.bf.knnMatch(self.desc2, self.desc1, 2)
+
+            # Check now if there are any matches
+            if self.matches1 is None or self.matches2 is None:
+                print "There are keypoints, but no one matches"
+            else:
+                self.is_minmatches = True
+                self.good_matches = self.filter_matches(self.matches1,
+                                                        self.matches2)
         # self.matches = sorted(self.matches, key=lambda x: x.distance)
 
     def filter_distance(self, matches):
@@ -79,10 +109,12 @@ class Matcher(object):
         sel_matches = []
         thres_dist = 0
         temp_matches = []
+        # print "Entering in the filter_distance function..."
 
         for i in range(0, len(matches) - 1):
             # We keep only those match objects with two matches:
             if (len(matches[i])) == 2:
+                # print "There is at least one match with 2 candidate points"
                 # If there are two matches:
                 for j in range(0, 2):
 
@@ -90,13 +122,17 @@ class Matcher(object):
                     temp_matches.append(matches[i])
 
         # Now, calculate the threshold:
-        thres_dist = (sum(dist) / len(dist)) * self.ratio
+        if dist:
+            thres_dist = (sum(dist) / len(dist)) * self.ratio
+        else:
+            return
 
         # Keep only reasonable matches based on the threshold distance:
         for i in range(0, len(temp_matches)):
             if (temp_matches[i][0].distance / temp_matches[i][1].distance) < thres_dist:
 
                 sel_matches.append(temp_matches[i])
+        print "matches after distance", len(sel_matches)
 
         return sel_matches
 
@@ -131,6 +167,7 @@ class Matcher(object):
         self.good_kp1 = self.good_kp1[::2]
         self.good_kp2 = self.good_kp2[::2]
         sel_matches = sel_matches[::2]
+        print "matches after simmetric filter", len(sel_matches)
 
         return sel_matches
 
@@ -142,9 +179,26 @@ class Matcher(object):
         # @return good_matches: List of filtered matches
 
         matches1 = self.filter_distance(matches1)
+        if matches1:
+            print ("Matches1 after distance filter:\
+                    {}".format(len(matches1)))
         matches2 = self.filter_distance(matches2)
-        good_matches = self.filter_asymmetric(matches1, matches2)
-        return good_matches
+        if matches2:
+            print ("Matches2 after distance filter:\
+                     {}".format(len(matches2)))
+        print "Ended distance filtering"
+        if not matches1 or not matches2:
+            print "Not matches1 or not matches2"
+            self.is_minmatches = False
+        else:
+            self.is_minmatches = True
+        print self.is_minmatches
+        if self.is_minmatches:
+            print "Go to filter asymmetric matches..."
+            good_matches = self.filter_asymmetric(matches1, matches2)
+            return good_matches
+        else:
+            return None
 
     def match_flann(self, img_new, img_prev):
         # Compute matches for the two images based on Flann.
