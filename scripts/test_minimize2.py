@@ -13,7 +13,9 @@ img.read_image()
 img.copy_image()
 img.acquire()
 h = img.new_image.shape[0]
+print "IMAGE HEIGHT", h
 w = img.new_image.shape[1]
+print "IMAGE WITH", w
 n = 2  # Number of roi's
 size = np.array([[w / n], [h / n]], np.int32)
 start = np.array([[0], [0]], np.int32)

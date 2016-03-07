@@ -41,8 +41,8 @@ class VisualOdometry(object):
     def FindFundamentalRansac(self, kpts1, kpts2):
         # Compute Fundamental matrix from a set of corresponding keypoints,
         # within a RANSAC scheme
-        # @param kpts1: list of keypoints of the current frame
-        # @param kpts2: list of keypoints of the reference frame
+        # @param kpts1: list of keypoints of the previous frame
+        # @param kpts2: list of keypoints of the current frame
 
         kpts1 = np.float32(kpts1)
         kpts2 = np.float32(kpts2)
@@ -50,8 +50,8 @@ class VisualOdometry(object):
 
     def FindEssentialRansac(self, kpts1, kpts2):
         # Compute Essential matrix from a set of corresponding points
-        # @param kpts1: list of keypoints of the current frame
-        # @param kpts2: list of keypoints of the reference frame
+        # @param kpts1: list of keypoints of the previous frame
+        # @param kpts2: list of keypoints of the current frame
 
         kpts1 = np.float32(kpts1)
         kpts2 = np.float32(kpts2)
@@ -76,8 +76,8 @@ class VisualOdometry(object):
     def FindFundamentalRansacPro(self, queue):
         # Compute Fundamental matrix from a set of corresponding keypoints,
         # within a RANSAC scheme
-        # @param kpts1: list of keypoints of the current frame
-        # @param kpts2: list of keypoints of the reference frame
+        # @param kpts1: list of keypoints of the previous frame
+        # @param kpts2: list of keypoints of the current frame
 
         temp = queue.get()
         kpts1 = temp[0]
@@ -90,8 +90,8 @@ class VisualOdometry(object):
 
     def EstimateF_multiprocessing(self, kpts1, kpts2):
         # Estimate F using the multiprocessing module
-        # @param kpts1: list of keypoints of the current frame
-        # @param kpts2: list of keypoints of the reference frame
+        # @param kpts1: list of keypoints of the previous (first) frame
+        # @param kpts2: list of keypoints of the current frame
         # @return kpts1, kpts2: Inliers
 
         kpts1 = np.float32(kpts1)
@@ -465,12 +465,32 @@ class VisualOdometry(object):
         print np.shape(self.F)
         self.E = self.K.transpose().dot(self.F).dot(self.K)
 
+    def get_pose(self, curr_kpts, prev_kpts, focal, pp):
+        # Recover the rotation matrix and the translation vector from the
+        # essential matrix E.
+        # @param curr_kpts: Keypoints of the current frame (np.array float)
+        # @param prev_kpts: Keypoints of the previous frame
+        # @param focal: focal lenght of the camera
+        # @param pp: principal point of the camera
+        # @param mask: mask , it will store the mask with the points used to
+        # recover the pose
+        # @return R: Rotation matrix, to be calculated
+        # @return t: translation vector, to be calculated
+
+        points, R, t, mask = cv2.recoverPose(self.E, curr_kpts, prev_kpts,
+                                             focal, pp)
+        return R, t
+
 
 class Camera(object):
 
     def __init__(self, P):
         self.P = P
-        self.K = None
+        self.K = np.array([[7.18856e+02, 0.0, 6.071928e+02],
+                          [0.0, 7.18856e+02, 1.852157e+02],
+                          [0.0, 0.0, 1.0]])
+        self.pp = np.array([self.K[0, 2], self.K[1, 2]])
+        self.focal = self.K[0, 0]
         self.R = None
         self.t = None
         self.c = None  # Camera center
@@ -492,3 +512,10 @@ class Camera(object):
     def set_K(self, K):
 
         self.K = K
+
+    def compute_P(self, R, t):
+        # Compute the camera matrix given the extrinsic parameters R and t
+        # @param R: Rotation matrix
+        # @param t: translation vector
+        pose = np.column_stack((R, t))
+        self.P = np.dot(self.K, pose)

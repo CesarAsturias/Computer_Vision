@@ -28,6 +28,8 @@ def plot_scene(scene):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.plot(scene[0], scene[1], scene[2], 'ko')
+    plt.xlabel('x')
+    plt.ylabel('y')
     plt.axis('equal')
     plt.show()
 
@@ -76,6 +78,26 @@ def get_structure(match, img, vo):
     # @param vo: VisualOdometry object
 
     vo.P_from_F(vo.F)
+    vo.create_P1()
+
+    # Triangulate points
+    # global_kpts1 --> keypoints in the second scene, but we are inverting the
+    # scene in order to obtain the movement of the camera, which is equal to the
+    # movement of the points inverted. So, the camera matrix of the global_kpts1
+    # keypoints is the camera of the first image
+
+    scene = vo.opt_triangulation(match.global_kpts1, match.global_kpts2,
+                                 vo.cam1.P, vo.cam2.P)
+
+    return scene
+
+
+def get_structure_normalized(match, img, vo):
+    # Get structure of the scene
+    # @param match: Matcher object
+    # @apram img: CVImage object
+    # @param vo: VisualOdometry object
+
     vo.create_P1()
 
     # Triangulate points

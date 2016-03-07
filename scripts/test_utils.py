@@ -1,5 +1,6 @@
 from VisualOdometry import VisualOdometry
 from utils import get_structure, plot_matches, correlate_image, plot_scene
+from utils import get_structure_normalized
 from CVImage import CVImage
 from Matcher import Matcher
 
@@ -7,6 +8,7 @@ from Matcher import Matcher
 def run():
     match = Matcher()
     img = CVImage('/home/cesar/Documentos/Computer_Vision/01/image_0')
+    # img = CVImage('/home/cesar/Documentos/Computer_Vision/images_test')
 
     # Load images
     img.read_image()
@@ -41,6 +43,27 @@ def run():
     scene = get_structure(match, img, vo)
 
     # Plot it
+    plot_scene(scene)
+
+    # Get the Essential matrix
+    vo.E_from_F()
+    print vo.F
+    print vo.E
+
+    # Recover pose
+    R, t = vo.get_pose(match.global_kpts1, match.global_kpts2,
+                       vo.cam1.focal, vo.cam1.pp)
+    print R
+
+    print t
+
+    # Compute camera matrix 2
+    print "CAM2", vo.cam2.P
+    vo.cam2.compute_P(R, t)
+    print "CAM2", vo.cam2.P
+
+    # Get the scene
+    scene = get_structure_normalized(match, img, vo)
     plot_scene(scene)
 
 if __name__ == '__main__':

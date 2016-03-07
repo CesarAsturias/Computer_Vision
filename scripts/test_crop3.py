@@ -3,7 +3,7 @@ from Matcher import Matcher
 import numpy as np
 from VisualOdometry import VisualOdometry
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import axes3d
+# from mpl_toolkits.mplot3d import axes3d
 
 
 def correlate_roi(match, img, size, start):
@@ -129,6 +129,10 @@ def get_structure(match, img, vo):
     vo.create_P1()
 
     # Triangulate points
+    # global_kpts1 -> keypoints in the second scene, but we are inverting the
+    # scne in order to obtain the movement of the camera, which is equal to the
+    # movement of the points inverted. So, the camera matrix of the
+    # global_kpts1 keypoints is the camera of the first frame
     scene = vo.opt_triangulation(match.global_kpts1, match.global_kpts2,
                                  vo.cam1.P, vo.cam2.P)
 
@@ -173,7 +177,8 @@ def run():
     print match.curr_kp[0].pt
     print match.global_kpts1[0]
     # Print the total number of keypoints encountered
-    print("Total number of keypoints encountered: {}".format(get_number_keypoints(match)))
+    print("Total number of keypoints encountered: \
+          {}".format(get_number_keypoints(match)))
 
     # Test the plot_same_figure function
     # plot_same_figure(match, img)
@@ -183,11 +188,13 @@ def run():
     # Get Fundamental Matrix
     vo = VisualOdometry()
     print "Type of match.global_kpts1: ", type(match.global_kpts1)
-    match.global_kpts1, match.global_kpts2 = vo.EstimateF_multiprocessing(match.global_kpts2, match.global_kpts1)
+    match.global_kpts1, match.global_kpts2 = \
+        vo.EstimateF_multiprocessing(match.global_kpts2, match.global_kpts1)
     # plot_one(match, img)
     # plot_one_np(vo.outlier_points_new, img)
     # plot_together_np(match.global_kpts1, vo.outlier_points_new, img)
-    print("Total number of keypoints encountered: {}".format(get_number_keypoints(match)))
+    print("Total number of keypoints encountered: \
+          {}".format(get_number_keypoints(match)))
 
     # Triangulate. To get the actual movement of the camera we are "swapping"
     # the scene. The first camera is cam1.P, the first keypoints are
@@ -206,6 +213,8 @@ def run():
     ax.plot(scene[0], scene[1], scene[2], 'ko')
     plt.axis('equal')
     plt.show()
+
+    # Test utils
 
 
 if __name__ == '__main__':
