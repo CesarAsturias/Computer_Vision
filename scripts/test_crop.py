@@ -162,5 +162,8 @@ img.invariant_image = match.draw_outliers_np(img.invariant_image, vo.outlier_poi
 
 plt.imshow(img.invariant_image, cmap='gray', interpolation = 'bicubic')
 plt.show()
+match.global_kpts1 = np.reshape(match.global_kpts1, (len(match.global_kpts1), 2))
+match.global_kpts2 = np.reshape(match.global_kpts2, (len(match.global_kpts2), 2))
+
 
 
