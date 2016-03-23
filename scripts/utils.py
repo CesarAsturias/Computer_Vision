@@ -8,6 +8,17 @@ def plot_image(img):
     plt.show()
 
 
+def plot_two_points(points1, points2, img):
+    plt.imshow(img.prev_image, cmap='gray', interpolation='bicubic')
+    x1 = points1[:, 0]
+    y1 = points1[:, 1]
+    plt.plot(x1, y1, 'r*')
+    x2 = points2[:, 0]
+    y2 = points2[:, 1]
+    plt.plot(x2, y2, 'k*')
+    plt.show()
+
+
 def plot_matches(match, img):
     plt.imshow(img.new_image, cmap='gray', interpolation='bicubic')
     global_kpts1 = np.reshape(match.global_kpts1, (len(match.global_kpts1), 2))
@@ -39,11 +50,8 @@ def correlate_roi(match, img, size, start):
     roi = img.crop_image(start, size, img.new_image)
     roi_prev = img.crop_image(start, size, img.prev_image)
     match.match(roi, roi_prev)
-    print len(match.good_kp1)
-
     # Check if there are any match
     if match.is_minkp and match.is_minmatches:
-        print "Appending"
         match.sum_coord(start[0], start[1])
         match.append_global()
 

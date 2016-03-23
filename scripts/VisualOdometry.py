@@ -458,6 +458,14 @@ class VisualOdometry(object):
 
         return param_opt, param_cov
 
+    def recover_structure(self, vector_param):
+        # Recover the structure matrix from the optimized vector of parameters
+        # @param vector_param: vector of optimized parameters
+        p = vector_param[12:len(vector_param)]
+        l = np.shape(p)
+        self.structure = np.reshape(p, (3, l[0] / 3))
+        return self.structure
+
     def E_from_F(self):
         #
         # Get the essential matrix from the fundamental

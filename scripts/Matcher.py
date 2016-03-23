@@ -49,7 +49,10 @@ class Matcher(object):
         self.prev_dsc = []
         self.is_minkp = None
         self.is_minmatches = None
-
+        self.lk_params = dict(winSize=(15, 15),
+                              maxLevel=2,
+                              criteria=(cv2.TERM_CRITERIA_EPS |
+                                        cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
     def match(self, img_new, img_prev):
         # Compute the matches for the two images using the Brute Force matcher
@@ -72,7 +75,7 @@ class Matcher(object):
             print "The list of keypoints is emtpy"
         else:
             print "The list of keypoints is NOT empty"
-            if np.size(self.desc1)==0 or np.size(self.desc2)==0:
+            if np.size(self.desc1) == 0 or np.size(self.desc2) == 0:
                 print "NO DESCRIPTORS"
                 self.is_minkp = False
             else:
@@ -80,9 +83,9 @@ class Matcher(object):
 
         # Store the keypoints
         # print "len original", len(self.kp1)
-        #for i in range(len(self.kp1)):
+        # for i in range(len(self.kp1)):
         #     self.curr_kp.append(self.kp1[i])
-        #for i in range(len(self.kp2)):
+        # for i in range(len(self.kp2)):
         #     self.prev_kp.append(self.kp2[i])
 
         if self.is_minkp:
@@ -117,7 +120,6 @@ class Matcher(object):
                 # print "There is at least one match with 2 candidate points"
                 # If there are two matches:
                 for j in range(0, 2):
-
                     dist.append(matches[i][j].distance)
                     temp_matches.append(matches[i])
 
@@ -332,3 +334,37 @@ class Matcher(object):
 
             self.good_kp2[i] = np.array([self.good_kp2[i][0],
                                          self.good_kp2[i][1]]).reshape(2)
+
+    def lktracker(self, img_prev, img_curr, prev_points):
+            # Tracks the prev_points in the current image.
+            # @param img_prev: image, the previous image
+            # @param img_curr: the current image
+            # @param prev_points: vector of points in the  previous image
+            list_tracks = []
+            curr_points, st, err = cv2.calcOpticalFlowPyrLK(img_prev,
+                                                            img_curr,
+                                                            prev_points,
+                                                            None,
+                                                            **self.lk_params)
+            print "LK current points", len(curr_points)
+
+            prev_points2, st, err = cv2.calcOpticalFlowPyrLK(img_curr,
+                                                             img_prev,
+                                                             curr_points,
+                                                             None,
+                                                             **self.lk_params)
+            print "LK prev poiints", len(prev_points)
+            d = abs(prev_points - prev_points2).reshape(-1, 2).max(-1)
+            print "d", d
+            good = d < 2
+            # print "good", good
+            for (x, y), good_flag in zip(curr_points.reshape(-1, 2), good):
+                if not good_flag:
+                    continue
+                list_tracks.append((x, y))
+
+            return good, prev_points2, list_tracks
+
+    #def track(self, img, match):
+        # This function implements the tracking of the points across five images
+        # or less if we loss too much points.
