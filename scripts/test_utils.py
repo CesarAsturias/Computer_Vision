@@ -5,6 +5,8 @@ from CVImage import CVImage
 from Matcher import Matcher
 import cv2
 import numpy as np
+import ransac
+from PlaneModel import RansacModel
 lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS |
                                                          cv2.TERM_CRITERIA_COUNT,
                                                          10, 0.03))
@@ -120,7 +122,19 @@ def run():
     print "Shpe of plane: {}".format(np.shape(plane))
     print "Type of plane: {}".format(type(plane))
     print np.transpose(plane[:, :3])
-    print plane[:, 1]
+    plane = np.transpose(plane)
+    print "shape plane: {}".format(np.shape(plane))
+    plane_inhomogeneous = np.delete(plane, 3, 1)
+    print "shape plane: {}".format(np.shape(plane_inhomogeneous))
+    print plane_inhomogeneous[:3, :]
+    # Use ransac to fit a plane
+    debug = False
+    plane_model = RansacModel(debug)
+    ransac_fit, ransac_data = ransac.ransac(plane_inhomogeneous,
+                                            plane_model,
+                                            4, 1000, 1e-2, 10,
+                                            debug=debug, return_all=True)
+    print "Ransac fit: {}".format(ransac_fit)
 
 if __name__ == '__main__':
     run()
