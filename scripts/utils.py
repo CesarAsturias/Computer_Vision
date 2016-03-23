@@ -62,21 +62,36 @@ def correlate_image(match, img, nv_rois, nh_rois):
     # @param img: CVImage object
     # @param nv_rois: Number of rois (vertical dimension)
     # @param nh_rois: Number of rois (horizantal dimension)
+    # @return p1, p2: Ground plane points (previous and current) as a numpy
+    # array.
 
     size = np.array([[img.frame_width / nh_rois], [img.frame_height / nv_rois]],
                     np.int32)  # Size of rois
 
     start = np.array([[0], [0]], np.int32)
+    points_plane = []
 
     for i in range(nv_rois):
         for j in range(nh_rois):
             start = np.array([[j * size[0]], [i * size[1]]])
             correlate_roi(match, img, size, start)
+            # Save the ground plane points
+            if i == 1 and j > 2 and j < 6:
+                points_plane.append([match.good_kp1, match.good_kp2])
 
     match.curr_kp = match.curr_kp[::2]
     match.prev_kp = match.prev_kp[::2]
     match.curr_dsc = match.curr_dsc[::2]
     match.prev_dsc = match.prev_dsc[::2]
+
+    p1 = [np.asarray(points_plane[i][0]) for i in range(len(points_plane))]
+    p2 = [np.asarray(points_plane[i][1]) for i in range(len(points_plane))]
+    p1 = np.asarray(p1)
+    p2 = np.asarray(p2)
+    p1 = np.vstack(p1)
+    p2 = np.vstack(p2)
+
+    return p1, p2
 
 
 def get_structure(match, img, vo):

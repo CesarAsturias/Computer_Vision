@@ -23,7 +23,7 @@ def run():
 
     # Correlate
 
-    correlate_image(match, img, 2, 7)
+    p1, p2 = correlate_image(match, img, 2, 7)
     print ("Total number of keypoints in second image: \
            {}".format(len(match.global_kpts1)))
 
@@ -86,6 +86,7 @@ def run():
 
     print ("Format of global keypoints: \
             {}".format(type(match.global_kpts1[0])))
+    print ("Shape of global kpts1: {}".format(np.shape(match.global_kpts1)))
 
     # print ("global keypoint: \
     #       {}".format(match.global_kpts1[0]))
@@ -112,7 +113,14 @@ def run():
     #                                            match.global_kpts2, None,
     #                                            **lk_params)
     # print len(points)
-
+    print "Shape of p1: {}".format(np.shape(p1))
+    plane = vo.opt_triangulation(p1, p2,
+                                 vo.cam1.P, vo.cam2.P)
+    plot_scene(plane)
+    print "Shpe of plane: {}".format(np.shape(plane))
+    print "Type of plane: {}".format(type(plane))
+    print np.transpose(plane[:, :3])
+    print plane[:, 1]
 
 if __name__ == '__main__':
     run()
