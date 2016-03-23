@@ -1,6 +1,6 @@
 from VisualOdometry import VisualOdometry
 from utils import get_structure, plot_matches, correlate_image, plot_scene
-from utils import get_structure_normalized, plot_two_points
+from utils import get_structure_normalized, plot_two_points, plot_plane
 from CVImage import CVImage
 from Matcher import Matcher
 import cv2
@@ -132,9 +132,13 @@ def run():
     plane_model = RansacModel(debug)
     ransac_fit, ransac_data = ransac.ransac(plane_inhomogeneous,
                                             plane_model,
-                                            4, 1000, 1e-2, 10,
+                                            4, 1000, 1e-4, 50,
                                             debug=debug, return_all=True)
     print "Ransac fit: {}".format(ransac_fit)
+    # PLot the plane
+    X, Y = np.meshgrid(np.arange(-0.3, 0.7, 0.1), np.arange(0, 0.5, 0.1))
+    Z = -(ransac_fit[0] * X - ransac_fit[1] * Y - ransac_fit[3]) / ransac_fit[2]
+    plot_plane(X, Y, Z, plane_inhomogeneous[ransac_data['inliers']])
 
 if __name__ == '__main__':
     run()

@@ -133,3 +133,16 @@ def get_structure_normalized(match, img, vo):
                                  vo.cam1.P, vo.cam2.P)
 
     return scene
+
+
+def plot_plane(X, Y, Z, points):
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.plot_surface(X, Y, Z, rstride=1, cstride=1, alpha=0.2)
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='r', s=50)
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.axis('equal')
+    ax.axis('tight')
+    plt.show()
