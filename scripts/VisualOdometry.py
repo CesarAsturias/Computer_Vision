@@ -4,6 +4,7 @@ import threading
 from multiprocessing import Process, Queue
 from scipy import linalg
 from scipy import optimize
+from math import cos, sin, exp
 
 # @file VisualOdometry.py
 # @author Cesar
@@ -33,6 +34,7 @@ class VisualOdometry(object):
         self.K = np.array([[7.18856e+02, 0.0, 6.071928e+02],
                           [0.0, 7.18856e+02, 1.852157e+02],
                           [0.0, 0.0, 1.0]])  # Calibration matrix
+        self.height = 1.65  # Height of the cameras in meters
         self.E = None  # Essential matrix
         self.maskE = None  # Mask for the essential matrix
 
@@ -481,13 +483,58 @@ class VisualOdometry(object):
         # @param focal: focal lenght of the camera
         # @param pp: principal point of the camera
         # @param mask: mask , it will store the mask with the points used to
-        # recover the pose
+        # recover the pose. Use this mask to filter the 3D points to be used in
+        # following operations.
         # @return R: Rotation matrix, to be calculated
         # @return t: translation vector, to be calculated
 
         points, R, t, mask = cv2.recoverPose(self.E, curr_kpts, prev_kpts,
                                              focal, pp)
         return R, t
+
+    def compute_scale(self, plane_model, scene):
+        # Compute the scale of the scene based on a plane fitted to the 3D point
+        # cloud represented by scene. The plane_model is fitted using a
+        # least-squares approach inside a RANSAC scheme (see PlaneModel.py)
+        # @param plane_model: the parameters of the plane (numpy array)
+        # @param scene: 3D points marked as inliers by the RANSAC algorithm in
+        # the process of estimating the plane. (4 x n) numpy array
+        # @return scale: scale of the scene (float)
+
+        # First compute the distance for every inlier and take the mean as the
+        # final distance
+        distance_sum = 0
+        for i in range(np.shape(scene)[1]):
+            distance = (np.dot(plane_model, scene[:, i])) / \
+                        np.linalg.norm(plane_model)
+            distance_sum += distance
+        # Compute the mean distance and the corresponding scale as H / d
+        mean = distance_sum / np.shape(scene)[1]
+        scale = self.height / mean
+
+        return scale
+
+    def compute_scale2(self,  scene, pitch=0):
+        # Compute the scale using an heuristic approach. For every triangulated
+        # point compute it's height and the height difference with respect to
+        # the other points. Sum all this differences and use a heuristic
+        # function to decide which height is selected
+        # @param pitch: The pitch angle of the camera (by default zero)
+        # @param scene: 3D points of the hypothetical ground plane (4 x n)
+        max_sum = 0
+        for i in range(np.shape(scene)[1]):
+            h = scene[1][i] * cos(pitch) - scene[2][i] * sin(pitch)
+            height_sum = 0
+            for j in range(np.shape(scene)[1]):
+                h_j = scene[1][j] * cos(pitch) - scene[2][j] * sin(pitch)
+                height_diff = h_j - h
+                height_sum += exp(-50 * height_diff * height_diff)
+            if height_sum > max_sum:
+                max_sum = height_sum
+                best_idx = i
+        scale = scene[1][best_idx] * cos(pitch) - \
+                scene[2][best_idx] * sin(pitch)
+        return scale
 
 
 class Camera(object):
