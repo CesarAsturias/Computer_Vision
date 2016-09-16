@@ -1,32 +1,174 @@
 import numpy as np
 import cv2
-from cv2 import KeyPoint
-from cv2 import FlannBasedMatcher
 import pdb
 
+"""
+.. codeauthor:: Cesar Gonzalez Gonzalez
+: file Matcher.py
 
-# @file Matcher.py
-# @author Cesar
-# @version 1.0
-# Class Matcher. Implements several methods to calculate
-# the keypoints and descriptors of the images, and correlate them
+"""
 
 
 class Matcher(object):
-    def __init__(self):
-        # Initiate ORB detectors
-        self.orb = cv2.ORB_create()
-        # If we want to filter ourselves the maches from bfmatches, crosscheck =
-        # false
-        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-        self.Flann_index_lsh = 6
-        self.index_params = dict(algorithm=self.Flann_index_lsh, table_number=6,
-                                 key_size=12, multi_probe_level=1)
-        self.search_params = dict(checks=50)
-        self.flann_matcher = FlannBasedMatcher(self.index_params,
-                                               self.search_params)
-        self.kp1 = KeyPoint()
-        self.kp2 = KeyPoint()
+    """ The Matcher object allow us to find and store the keypoints of an image.
+
+    We can use the ORB_ detector or the Flann_ detector. By default the object
+    will use the ORB detector and the brute force matcher, but we can make
+    use of the Flann-based matcher (with ORB or another detector) by
+    passing to the object a dictionary with the detector and the matcher name.
+
+    .. _ORB: http://www.willowgarage.com/sites/default/files/orb_final.pdf
+    .. _Flann: http://docs.opencv.org/3.0-beta/doc/tutorials/features2d/feature_flann_matcher/feature_flann_matcher.html
+
+    For Flann based matcher we need to pass two dictionaries which specifies the
+    algorithm to be used, its related parameters, etc. First one is
+    *IndexParams*. We can use one of the following algorithms:
+
+        1. Linear brute force search: FLANN_INDEX_LINEAR (0)
+        2. KDTree search. The matcher will construct a set of randomized
+           kd-trees which will be searched in parallel: FLANN_INDEX_KDTREE(1)
+        3. KMeans search. The matcher will construct an hierarchical k-means
+           tree: FLANN_INDEX_KMEANS (2)
+
+    **Attributes**:
+
+        .. data:: detector
+
+           The detector instance
+
+        .. data:: matcher
+
+           The matcher instance
+
+        .. data:: flann_algorithm
+
+           Dictionary containing the different possible algorithms for the
+           Flann based matcher.
+
+        .. data:: norm
+
+           The norm to be used if the brute force matcher is used. Can be
+           *L2* norm, if not using *ORB* detector or *Hamming* otherwise.
+
+        .. data:: minkp
+
+           Boolean. If True, the matching method have found at least one keypoint in
+           both images.
+
+        .. data:: minmatches
+
+           Boolean. If True, there is at least one match between the keypoints.
+
+        .. data:: kp1
+
+           List of KeyPoints objects founded by the detector in the first image.
+
+        .. data:: kp2
+
+           List of KeyPoints objects founded by the detector in the second image.
+
+        .. data:: desc1
+
+           Numpy ndarray returned by the detector in the first image. This multi-
+           dimensional array will have two dimensions:
+
+               1. Array that stores the  descriptors:
+
+                   .. code-block:: python
+
+                      desc1[0] # Shows the first descriptor
+
+                 We can get the number of descriptors returned by the detector:
+
+                   .. code-block:: python
+
+                      n_desc = (np.shape(desc1)[0])
+
+               2. The descriptor itself. In the case of the *ORB* descriptor
+                  it will be of size 32 (see the original paper of ORB_).
+
+
+
+    **Constructor**:
+
+        The constructor takes as argument a dictionary that contains the
+        following keys:
+
+            1. detector: Can be 'orb', 'surf' or 'sift'.
+
+            2. matcher: Can be 'brute_force' or 'flann'.
+
+            3. flann_index_params: The Flann based matcher takes different
+            parameters depending on the used algorithm. This argument should
+            be a dictionary containing the following keys:
+
+                1. *LSH* algorithm:
+
+                    a. algorithm: The algorithm to be used (*FLANN_LSH*)
+                    b. table_number: The number of hash tables used (between
+                       10 and 30 usually, but in the documentation they said
+                       that 6 usually works better.
+                    c. key_size: The size of the hash key in bits (between
+                       10 and 20 usually)
+                    d. multi_probe_level: The number of bits to shift to check
+                       for neighboring buckets (0 is regular LSH, 2 is recommen-
+                       ded).
+
+                2. *KDTREE* algorithm:
+
+                    a. algorithm: The algorithm to be used (*FLANN_KDTREE*)
+                    b. trees: The number of parallel kd-trees to use. Good
+                       values are in the range [1..16].
+
+                :example:
+
+                    >>> flann_index_params = dict(algorithm='FLANN_LSH',
+                                                  table_number=6,
+                                                  key_size=12,
+                                                  multi_probe_level=1)
+                    >>> flann_index_params = dict(algorithm='FLANN_KDTREE',
+                                                  trees=5)
+
+            4. flann_search_params: The Flann based matcher performs a K-nearest
+               neighbor search for a given query point using the index. This
+               search use a *checks* parameter that indicates the number of
+               times the tree(s) in the index should be recursively traversed.
+               A higher value for this parameter would give better search
+               precision, but also take more time. This parameter is optional,
+               so if we don't know which value should it takes then we can
+               also pass an empty dictionary.
+
+               :example:
+
+                   >>> flann_search_params = dict(checks=50)
+
+
+
+
+    """
+    def __init__(self, parameters):
+        # Initiate detector and matcher
+        if parameters['detector'] == 'orb':
+            self.detector = cv2.ORB_create(400)
+            self.norm = cv2.NORM_HAMMING
+        elif parameters['detector'] == 'surf':
+            self.detector = cv2.xfeatures2d.SURF_create(800)
+            self.norm = cv2.NORM_L2
+        elif parameters['detector'] == 'sift':
+            self.detector = cv2.xfeatures2d.SIFT_create()
+            self.norm = cv2.NORM_L2
+        else:
+            raise KeyError("Valid detectors: orb, surf, sift")
+        if parameters['matcher'] == 'flann':
+            self.matcher = cv2.FlannBasedMatcher(parameters['flann_index_params'],
+                                                 parameters['flann_search_params'])
+        else:
+            # Use the brute force matcher. We set the *crossCheck* parameter to
+            # False because we are going to check the matches ourselves.
+            self.matcher = cv2.BFMatcher(self.norm, crossCheck=False)
+
+        self.kp1 = []
+        self.kp2 = []
         self.desc1 = None
         self.desc2 = None
         self.matches = None
